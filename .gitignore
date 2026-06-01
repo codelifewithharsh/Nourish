@@ -32,6 +32,17 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.production
+.env.development
+
+# EAS submit credentials
+service-account-key.json
+google-services.json
+GoogleService-Info.plist
+
+# Supabase CLI local state (machine-specific project linkage)
+supabase/.temp/
+supabase/.branches/
 
 # typescript
 *.tsbuildinfo
