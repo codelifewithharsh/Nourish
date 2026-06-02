@@ -19,8 +19,8 @@ Honest backlog of what's missing, broken, or worth doing. Organised by priority.
 **Done:** Native splash bg colour, Android adaptive icon background, iOS notification icon.
 
 **Still needed (requires design work):**
-- Replace `assets/icon.png` (currently the Expo placeholder) with a real 1024×1024 Satva icon.
-- Replace `assets/splash-icon.png` (currently a placeholder) with the Satva logomark.
+- Replace `assets/icon.png` (currently the Expo placeholder) with a real 1024×1024 PulseAI icon.
+- Replace `assets/splash-icon.png` (currently a placeholder) with the PulseAI logomark.
 - Generate Android adaptive icon variants from the new design via `npx expo prebuild`.
 
 Tools that help: [Icon Kitchen](https://icon.kitchen/), Figma, DALL-E.
@@ -29,7 +29,7 @@ Tools that help: [Icon Kitchen](https://icon.kitchen/), Figma, DALL-E.
 **Done:** `.env.example` documented, `eas.json` env wiring.
 
 **Still needed:**
-1. Create a second Supabase project ("satva-prod").
+1. Create a second Supabase project ("pulseai-prod").
 2. `npx supabase link --project-ref <prod-ref>` and `npx supabase db push`.
 3. Deploy all four edge functions to prod.
 4. Set `OPENAI_API_KEY` in prod.

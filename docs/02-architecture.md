@@ -47,7 +47,7 @@ The client never talks to OpenAI directly. **Every AI call goes through a Supaba
 ## 2. Folder layout
 
 ```
-Satva/
+PulseAI/
 ├─ app/                          ← Expo Router file-based routes
 │  ├─ _layout.tsx                ← root provider stack + auth listener
 │  ├─ index.tsx                  ← branded splash → routes by session

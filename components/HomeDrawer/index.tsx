@@ -195,12 +195,12 @@ export function HomeDrawer({
               <DrawerItem
                 icon={<MessageSquareHeart size={18} color={Colors.secondary} strokeWidth={2.2} />}
                 label="Send feedback"
-                hint="Help us improve Satva"
-                onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=Satva%20feedback').catch(() => {})}
+                hint="Help us improve PulseAI"
+                onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=PulseAI%20feedback').catch(() => {})}
               />
               <DrawerItem
                 icon={<BookOpen size={18} color={Colors.secondary} strokeWidth={2.2} />}
-                label="How Satva works"
+                label="How PulseAI works"
                 hint="The plan behind your plan"
                 onPress={() => { haptic.light(); close(); setTimeout(onShowHowItWorks, 280); }}
               />
@@ -212,7 +212,7 @@ export function HomeDrawer({
               <Txt style={d.signOutTxt}>Sign out</Txt>
             </TouchableOpacity>
 
-            <Txt style={d.version}>Satva v1.0</Txt>
+            <Txt style={d.version}>PulseAI v1.0</Txt>
 
           </ScrollView>
         </Animated.View>

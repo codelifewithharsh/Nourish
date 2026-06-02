@@ -84,7 +84,7 @@ export default function RecipeScreen() {
       ``,
       `${recipe.prep_minutes ?? 20} mins · ${recipe.difficulty ?? 'easy'} · ${calories || '—'} kcal`,
       ``,
-      `Made with Satva — your AI nutrition companion 🌿`,
+      `Made with PulseAI — your AI nutrition companion 🌿`,
     ];
     Share.share({ message: lines.filter(Boolean).join('\n') });
   }, [recipe, calories]);
@@ -295,7 +295,7 @@ export default function RecipeScreen() {
 
         <View style={s.endNote}>
           <Soup size={13} color={Colors.secondary} strokeWidth={2} />
-          <Txt style={s.endNoteTxt}>Cooked with love · Satva</Txt>
+          <Txt style={s.endNoteTxt}>Cooked with love · PulseAI</Txt>
         </View>
       </ScrollView>
 

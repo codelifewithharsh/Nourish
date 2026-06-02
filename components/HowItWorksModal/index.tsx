@@ -130,7 +130,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
               <View style={s.outro}>
                 <Txt style={s.outroTitle}>Built around how Indians actually eat</Txt>
                 <Txt style={s.outroBody}>
-                  Roti, rice, dal, sabzi — not chicken breast and quinoa salads. Satva plans meals you'd
+                  Roti, rice, dal, sabzi — not chicken breast and quinoa salads. PulseAI plans meals you'd
                   cook anyway, with portions that match your goal.
                 </Txt>
               </View>

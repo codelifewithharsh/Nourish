@@ -886,7 +886,7 @@ export default function YouScreen() {
           <TouchableOpacity
             style={s.feedbackCard}
             activeOpacity={0.8}
-            onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=Satva%20feedback').catch(() => {})}
+            onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=PulseAI%20feedback').catch(() => {})}
           >
             <View style={s.feedbackIcon}>
               <MessageSquareHeart size={16} color={Colors.accent} strokeWidth={2.2} />
@@ -905,7 +905,7 @@ export default function YouScreen() {
           {/* ── Meet the founder ── */}
           <FounderCard />
 
-          <Txt style={s.version}>Satva · v1.0 · Made with 🌿 in India</Txt>
+          <Txt style={s.version}>PulseAI · v1.0 · Made with 🌿 in India</Txt>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -946,7 +946,7 @@ function FounderCard() {
       </View>
 
       <Txt style={fc.note}>
-        Hi, I'm Harsh. I built Satva because eating well shouldn't mean giving up roti, rajma, or rasam.
+        Hi, I'm Harsh. I built PulseAI because eating well shouldn't mean giving up roti, rajma, or rasam.
         {'\n'}
         <Txt style={fc.noteSoft}>If something feels off, tell me — I read every message.</Txt>
       </Txt>

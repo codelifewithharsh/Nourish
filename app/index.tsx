@@ -40,7 +40,7 @@ export default function Root() {
         autoPlay
         loop
       />
-      <Txt style={s.name}>Satva</Txt>
+      <Txt style={s.name}>PulseAI</Txt>
       <Txt style={s.tagline}>Your Personal Nutritionist</Txt>
     </View>
   );

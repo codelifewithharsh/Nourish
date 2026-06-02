@@ -1,4 +1,4 @@
-# Satva Documentation
+# PulseAI Documentation
 
 Welcome. This is your map to understanding the codebase end-to-end.
 
@@ -8,7 +8,7 @@ These docs are written for someone who knows JavaScript/TypeScript well but is t
 
 If you're new, read them in order. Each builds on the previous.
 
-1. **[01-overview.md](./01-overview.md)** — What Satva is, the user journey, what every tab does. Start here.
+1. **[01-overview.md](./01-overview.md)** — What PulseAI is, the user journey, what every tab does. Start here.
 2. **[02-architecture.md](./02-architecture.md)** — Folder layout, top-level patterns (file-based routing, no global state, direct DB calls, etc.) and the reasoning behind each.
 3. **[03-auth-and-routing.md](./03-auth-and-routing.md)** — How Expo Router works, the auth state machine, how Google OAuth is wired through Supabase Auth, what to set up in Google Cloud Console.
 4. **[04-supabase-and-database.md](./04-supabase-and-database.md)** — Supabase setup, Row Level Security, every table explained, migrations workflow, type generation.

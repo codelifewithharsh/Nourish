@@ -2,9 +2,9 @@
 
 *Last updated: 2026-06-01.*
 
-## What Satva is
+## What PulseAI is
 
-Satva is a mobile app (iOS + Android, built with Expo) that acts as a personalised AI nutritionist for Indian eaters. The pitch: tell us your body and goals, get a 7-day meal plan you'll actually cook, log what you ate by talking to AI, and adjust on the fly.
+PulseAI is a mobile app (iOS + Android, built with Expo) that acts as a personalised AI nutritionist for Indian eaters. The pitch: tell us your body and goals, get a 7-day meal plan you'll actually cook, log what you ate by talking to AI, and adjust on the fly.
 
 Three things make it different from MyFitnessPal / HealthifyMe:
 
@@ -66,7 +66,7 @@ What's notably **absent**: Redux, Zustand, React Query, GraphQL, a custom backen
 ## A 30-second tour of the repo
 
 ```
-Satva/
+PulseAI/
 ├─ app/              ← every file is a route (Expo Router)
 ├─ components/       ← shared UI used by multiple screens
 ├─ features/         ← screen-specific logic and hooks

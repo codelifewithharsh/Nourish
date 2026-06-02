@@ -175,7 +175,7 @@ function LoadingPhase({ onComplete }: { onComplete: () => void }) {
     <View style={ls.container}>
       <PulsingEmoji />
       <Animated.Text style={[ls.aiLabel, { opacity: labelOpacity }]}>
-        Satva AI is analyzing...
+        PulseAI is analyzing...
       </Animated.Text>
       <View style={ls.steps}>
         {STEP_TEXTS.map((text, i) => (
