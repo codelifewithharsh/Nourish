@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
+import { WATER_LOGGED_EVENT } from '@/app/_layout';
 
 export interface Meal {
   type: 'breakfast' | 'lunch' | 'dinner';
@@ -226,6 +228,13 @@ export function useHomeData() {
   const refresh = useCallback(() => {
     if (userId) fetchAll(userId);
   }, [userId, fetchAll]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(WATER_LOGGED_EVENT, ({ glasses }: { glasses: number }) => {
+      setData((prev) => prev ? { ...prev, glasses } : prev);
+    });
+    return () => sub.remove();
+  }, []);
 
   return { data, loading, logMeal, updateWater, refresh };
 }

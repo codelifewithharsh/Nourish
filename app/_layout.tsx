@@ -1,5 +1,6 @@
 import '../global.css';
 import { useEffect } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -8,6 +9,8 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
 import { WATER_ACTION_ID } from '@/lib/notifications';
+
+export const WATER_LOGGED_EVENT = 'water_logged_from_notification';
 
 async function handleLogWaterFromNotification() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -22,10 +25,12 @@ async function handleLogWaterFromNotification() {
     .maybeSingle();
 
   const current = data?.glasses ?? 0;
+  const newCount = current + 1;
   await supabase.from('water_logs').upsert(
-    { user_id: session.user.id, date: today, glasses: current + 1 },
+    { user_id: session.user.id, date: today, glasses: newCount },
     { onConflict: 'user_id,date' },
   );
+  DeviceEventEmitter.emit(WATER_LOGGED_EVENT, { glasses: newCount });
 }
 
 export default function RootLayout() {

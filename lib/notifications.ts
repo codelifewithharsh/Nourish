@@ -1,6 +1,5 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
 
 export const WATER_ACTION_ID = 'LOG_WATER_GLASS';
 const WATER_CATEGORY_ID = 'water-reminder-category';
@@ -9,7 +8,7 @@ export async function registerWaterNotificationCategory() {
   await Notifications.setNotificationCategoryAsync(WATER_CATEGORY_ID, [
     {
       identifier: WATER_ACTION_ID,
-      buttonTitle: '+ Log a glass',
+      buttonTitle: "I'll drink a glass 💧",
       options: { opensAppToForeground: false },
     },
   ]);
