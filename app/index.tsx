@@ -27,7 +27,8 @@ export default function Root() {
 
   useEffect(() => {
     console.log('[index] mount, calling getSession()');
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const run = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       console.log('[index] session resolved:', session?.user?.email ?? 'none');
       if (!session?.user) {
         console.log('[index] no session → /(auth)/login');
@@ -44,9 +45,8 @@ export default function Root() {
       const dest = data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding';
       console.log('[index] navigating to', dest);
       router.replace(dest);
-    }).catch((e) => {
-      console.log('[index] getSession ERROR:', e);
-    });
+    };
+    run().catch((e) => console.log('[index] ERROR:', e));
   }, []);
 
   return (

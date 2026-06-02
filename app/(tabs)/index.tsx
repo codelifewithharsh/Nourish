@@ -780,26 +780,6 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
                   Reminding you every {waterInterval}h from 8 AM to 10 PM
                 </Txt>
               )}
-              <TouchableOpacity
-                style={ns.testBtn}
-                activeOpacity={0.75}
-                onPress={async () => {
-                  const { registerWaterNotificationCategory } = await import('@/lib/notifications');
-                  await registerWaterNotificationCategory();
-                  await Notifications.scheduleNotificationAsync({
-                    content: {
-                      title: '💧 Time to hydrate!',
-                      body: "Stay on track — have you had a glass of water recently?",
-                      sound: false,
-                      data: { tag: 'water-reminder' },
-                      categoryIdentifier: 'water-reminder-category',
-                    },
-                    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5 },
-                  });
-                }}
-              >
-                <Txt style={ns.testBtnTxt}>Send test notification (5s)</Txt>
-              </TouchableOpacity>
             </View>
 
           </ScrollView>
@@ -844,6 +824,4 @@ const ns = StyleSheet.create({
   chipTxt:       { fontSize: 12, fontWeight: '600', color: Colors.secondary, lineHeight: 16 },
   chipTxtActive: { color: '#5B8DB8', fontWeight: '800' },
   waterHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
-  testBtn:       { marginTop: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#EAF4FB', borderRadius: 8, alignItems: 'center' },
-  testBtnTxt:    { fontSize: 12, fontWeight: '600', color: '#5B8DB8' },
 });
