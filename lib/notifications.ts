@@ -2,6 +2,19 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
+export const WATER_ACTION_ID = 'LOG_WATER_GLASS';
+const WATER_CATEGORY_ID = 'water-reminder-category';
+
+export async function registerWaterNotificationCategory() {
+  await Notifications.setNotificationCategoryAsync(WATER_CATEGORY_ID, [
+    {
+      identifier: WATER_ACTION_ID,
+      buttonTitle: '+ Log a glass',
+      options: { opensAppToForeground: false },
+    },
+  ]);
+}
+
 // Show notifications when app is in foreground too
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -94,13 +107,16 @@ export async function scheduleWaterReminders(intervalHours: number, wakeHour = 8
 
   if (intervalHours === 0) return;
 
+  await registerWaterNotificationCategory();
+
   for (let h = wakeHour; h < sleepHour; h += intervalHours) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '💧 Time to hydrate!',
-        body: "A glass of water keeps you energised and on track.",
+        body: "Tap below to log a glass — no need to open the app.",
         sound: false,
         data: { tag: WATER_TAG },
+        categoryIdentifier: WATER_CATEGORY_ID,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,

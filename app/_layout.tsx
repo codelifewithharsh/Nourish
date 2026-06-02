@@ -4,8 +4,29 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
+import { WATER_ACTION_ID } from '@/lib/notifications';
+
+async function handleLogWaterFromNotification() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await supabase
+    .from('water_logs')
+    .select('glasses')
+    .eq('user_id', session.user.id)
+    .eq('date', today)
+    .maybeSingle();
+
+  const current = data?.glasses ?? 0;
+  await supabase.from('water_logs').upsert(
+    { user_id: session.user.id, date: today, glasses: current + 1 },
+    { onConflict: 'user_id,date' },
+  );
+}
 
 export default function RootLayout() {
   console.log('[layout] render');
@@ -18,7 +39,16 @@ export default function RootLayout() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (response.actionIdentifier === WATER_ACTION_ID) {
+        handleLogWaterFromNotification();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      responseListener.remove();
+    };
   }, []);
 
   return (
