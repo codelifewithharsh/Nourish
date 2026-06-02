@@ -32,7 +32,7 @@ export default function Root() {
 
   return (
     <View style={s.root}>
-      <Image source={require('@/assets/pulseai.png')} style={s.logo} resizeMode="contain" />
+      <Image source={require('@/assets/pulseai-white.png')} style={s.logo} resizeMode="contain" />
       <Txt style={s.tagline}>Your Personal Nutritionist</Txt>
     </View>
   );
