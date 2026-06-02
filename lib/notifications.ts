@@ -112,7 +112,7 @@ export async function scheduleWaterReminders(intervalHours: number, wakeHour = 8
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '💧 Time to hydrate!',
-        body: "Tap below to log a glass — no need to open the app.",
+        body: "Stay on track — have you had a glass of water recently?",
         sound: false,
         data: { tag: WATER_TAG },
         categoryIdentifier: WATER_CATEGORY_ID,
