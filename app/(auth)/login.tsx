@@ -148,8 +148,8 @@ export default function LoginScreen() {
         </FadeUp>
 
         <FadeUp delay={200} style={s.headingBlock}>
-          <Txt style={s.appName}>PulseAI</Txt>
-          <Txt style={s.heading}>Your Personal Nutritionist</Txt>
+          <Txt style={s.appName}>Nourish</Txt>
+          <Txt style={s.heading}>Eat well. Live better.</Txt>
           <Txt style={s.subheading}>Finally, food that fits your life</Txt>
         </FadeUp>
 

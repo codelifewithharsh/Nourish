@@ -1,6 +1,6 @@
 import { DeviceEventEmitter } from 'react-native';
 
-export const TOAST_EVENT = '__pulseai_toast__';
+export const TOAST_EVENT = '__nourish_toast__';
 
 export type ToastType = 'success' | 'error' | 'info';
 

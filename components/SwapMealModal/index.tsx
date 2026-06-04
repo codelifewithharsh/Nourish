@@ -40,7 +40,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const SWAP_PLAN_PREF_KEY = '@pulseai/swap_update_plan';
+const SWAP_PLAN_PREF_KEY = '@nourish/swap_update_plan';
 
 const MOODS: { key: Mood; emoji: string; label: string }[] = [
   { key: 'light',    emoji: '🥗', label: 'Lighter' },

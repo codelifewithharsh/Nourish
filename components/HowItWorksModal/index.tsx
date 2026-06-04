@@ -89,7 +89,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
               <View style={s.headerInfo}>
                 <View style={s.eyebrowRow}>
                   <Heart size={11} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} />
-                  <Txt style={s.eyebrow}>HOW SATVA WORKS</Txt>
+                  <Txt style={s.eyebrow}>HOW NOURISH WORKS</Txt>
                 </View>
                 <Txt style={s.title}>The plan behind your plan</Txt>
                 <Txt style={s.subtitle}>
@@ -130,7 +130,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
               <View style={s.outro}>
                 <Txt style={s.outroTitle}>Built around how Indians actually eat</Txt>
                 <Txt style={s.outroBody}>
-                  Roti, rice, dal, sabzi — not chicken breast and quinoa salads. PulseAI plans meals you'd
+                  Roti, rice, dal, sabzi — not chicken breast and quinoa salads. Nourish plans meals you'd
                   cook anyway, with portions that match your goal.
                 </Txt>
               </View>

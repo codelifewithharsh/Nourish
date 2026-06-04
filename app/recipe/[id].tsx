@@ -93,7 +93,7 @@ export default function RecipeScreen() {
       ``,
       `${recipe.prep_minutes ?? 20} mins · ${recipe.difficulty ?? 'easy'} · ${calories || '—'} kcal`,
       ``,
-      `Planned with PulseAI · AI Nutritionist`,
+      `Planned with Nourish · AI Nutritionist`,
     ];
     analytics.recipeShared({ meal_name: mealName });
     Share.share({ message: lines.filter(Boolean).join('\n') });
@@ -308,7 +308,7 @@ export default function RecipeScreen() {
 
         <View style={s.endNote}>
           <Soup size={13} color={Colors.secondary} strokeWidth={2} />
-          <Txt style={s.endNoteTxt}>Cooked with love · PulseAI</Txt>
+          <Txt style={s.endNoteTxt}>Cooked with love · Nourish</Txt>
         </View>
       </ScrollView>
 

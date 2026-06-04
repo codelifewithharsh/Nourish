@@ -70,12 +70,12 @@ export default function Root() {
 
       {/* App name */}
       <Animated.View style={[s.nameWrap, { opacity: logoOpacity }]}>
-        <Txt style={s.appName}>PulseAI</Txt>
+        <Txt style={s.appName}>Nourish</Txt>
       </Animated.View>
 
       {/* Tagline */}
       <Animated.View style={{ opacity: tagOpacity, transform: [{ translateY: tagY }] }}>
-        <Txt style={s.tagline}>Your Personal AI Nutritionist</Txt>
+        <Txt style={s.tagline}>Eat well. Live better.</Txt>
       </Animated.View>
     </View>
   );
