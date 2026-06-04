@@ -78,6 +78,10 @@ export const analytics = {
   groceryListOpened:        ()                                                           => posthog.capture('grocery_list_opened'),
   groceryListExported:      (props: { item_count: number })                              => posthog.capture('grocery_list_exported', props),
 
+  // ── Errors ─────────────────────────────────────────────────────────────────
+  jsError: (props: { kind: string; message: string; stack?: string }) =>
+                              posthog.capture('js_error', props),
+
   // ── Credits / AI ───────────────────────────────────────────────────────────
   creditsUsed:              (props: { feature: string; cost: number; remaining: number }) =>
                               posthog.capture('credits_used', props),

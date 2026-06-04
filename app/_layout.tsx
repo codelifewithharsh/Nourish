@@ -12,6 +12,25 @@ import { CreditsProvider } from '@/features/credits/CreditsContext';
 import { WATER_ACTION_ID } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+// Capture unhandled JS errors and send to PostHog
+declare const ErrorUtils: {
+  getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
+  setGlobalHandler: (fn: (error: Error, isFatal?: boolean) => void) => void;
+} | undefined;
+
+if (typeof ErrorUtils !== 'undefined') {
+  const prev = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    analytics.jsError({
+      kind:    isFatal ? 'fatal' : 'unhandled',
+      message: error?.message ?? String(error),
+      stack:   error?.stack?.slice(0, 1000),
+    });
+    prev?.(error, isFatal);
+  });
+}
 
 async function handleLogWaterFromNotification() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -57,16 +76,18 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <CreditsProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="recipe/[id]" />
-        </Stack>
-        <ToastContainer />
-      </CreditsProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <CreditsProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="recipe/[id]" />
+          </Stack>
+          <ToastContainer />
+        </CreditsProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
