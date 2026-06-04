@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Switch } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withTiming, runOnJS,
@@ -16,6 +17,7 @@ import { useHomeData, Meal } from '@/features/home/useHomeData';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
+import { StreakShareModal } from '@/components/StreakShareModal';
 import { scheduleMealReminders, cancelMealReminders, scheduleWaterReminders, cancelWaterReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
@@ -138,6 +140,8 @@ export default function HomeScreen() {
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [notifsEnabled, setNotifsEnabled] = useState(false);
+  const [streakShareOpen, setStreakShareOpen] = useState(false);
+  const milestoneChecked = useRef(false);
 
   useEffect(() => {
     Notifications.getPermissionsAsync().then(({ status }) => {
@@ -153,6 +157,20 @@ export default function HomeScreen() {
       refresh();
     }, [refresh])
   );
+
+  // Auto-show streak share modal on milestones — once per milestone ever
+  const MILESTONES = [3, 7, 14, 30];
+  useEffect(() => {
+    if (milestoneChecked.current || !data || data.streak === 0) return;
+    if (!MILESTONES.includes(data.streak)) return;
+    milestoneChecked.current = true;
+    const key = `@nourish/streak_milestone_${data.streak}`;
+    AsyncStorage.getItem(key).then((seen) => {
+      if (seen) return;
+      AsyncStorage.setItem(key, '1');
+      setStreakShareOpen(true);
+    });
+  }, [data?.streak]);
 
   // Auto-poll every 5 s while the meal plan hasn't generated yet
   useEffect(() => {
@@ -198,10 +216,14 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <View>
               <Txt style={s.greeting}>{getGreeting()}, {userName.split(' ')[0]} {getTimeEmoji()}</Txt>
-              <View style={s.streakRow}>
+              <TouchableOpacity
+                style={s.streakRow}
+                activeOpacity={0.7}
+                onPress={() => setStreakShareOpen(true)}
+              >
                 <Txt style={s.streakIcon}>⚡</Txt>
                 <Txt style={s.streakTxt}>{streak} day{streak !== 1 ? 's' : ''} · {getStreakTitle(streak)}</Txt>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity style={s.bellBtn} activeOpacity={0.75} onPress={() => { analytics.notifSettingsOpened(); setNotifSheetOpen(true); }}>
@@ -396,6 +418,13 @@ export default function HomeScreen() {
       <HowItWorksModal
         visible={howItWorksOpen}
         onClose={() => setHowItWorksOpen(false)}
+      />
+
+      <StreakShareModal
+        visible={streakShareOpen}
+        streak={streak}
+        userName={userName}
+        onClose={() => setStreakShareOpen(false)}
       />
 
       <NotifSheet

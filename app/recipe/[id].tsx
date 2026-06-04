@@ -87,17 +87,24 @@ export default function RecipeScreen() {
   const handleShare = useCallback(async () => {
     if (!recipe) return;
     haptic.light();
+    const macroLine = [
+      calories  ? `⚡ ${calories} kcal` : null,
+      protein   ? `${protein}g protein`  : null,
+      carbs     ? `${carbs}g carbs`      : null,
+      fat       ? `${fat}g fat`          : null,
+    ].filter(Boolean).join(' · ');
     const lines = [
       `${recipe.hero_emoji ?? '🍽️'} ${recipe.name}`,
+      macroLine,
+      ``,
       recipe.tagline ?? '',
       ``,
-      `${recipe.prep_minutes ?? 20} mins · ${recipe.difficulty ?? 'easy'} · ${calories || '—'} kcal`,
-      ``,
-      `Planned with Nourish · AI Nutritionist`,
+      `Made with Nourish 🌿`,
+      `Eat well. Live better. → https://apps.apple.com/app/nourish`,
     ];
     analytics.recipeShared({ meal_name: mealName });
     Share.share({ message: lines.filter(Boolean).join('\n') });
-  }, [recipe, calories, mealName]);
+  }, [recipe, calories, protein, carbs, fat, mealName]);
 
   const openLink = (url?: string | null, platform?: 'instagram' | 'youtube') => {
     if (!url) return;

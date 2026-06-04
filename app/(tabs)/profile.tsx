@@ -3,8 +3,9 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, RefreshControl,
   KeyboardAvoidingView, Platform, Switch, Animated, Easing, LayoutAnimation, UIManager, Image, Linking,
-  DeviceEventEmitter,
+  DeviceEventEmitter, Share,
 } from 'react-native';
+import * as StoreReview from 'expo-store-review';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -945,6 +946,41 @@ export default function YouScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* ── Share + Rate ── */}
+          <View style={s.actionRow}>
+            <TouchableOpacity
+              style={s.actionCard}
+              activeOpacity={0.8}
+              onPress={async () => {
+                analytics.appShared();
+                await Share.share({
+                  message: `I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://apps.apple.com/app/nourish`,
+                });
+              }}
+            >
+              <Txt style={s.actionEmoji}>🔗</Txt>
+              <Txt style={s.actionTitle}>Invite a friend</Txt>
+              <Txt style={s.actionHint}>Share Nourish</Txt>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={s.actionCard}
+              activeOpacity={0.8}
+              onPress={async () => {
+                analytics.appRated();
+                if (await StoreReview.hasAction()) {
+                  await StoreReview.requestReview();
+                } else {
+                  Linking.openURL('https://apps.apple.com/app/nourish').catch(() => {});
+                }
+              }}
+            >
+              <Txt style={s.actionEmoji}>⭐</Txt>
+              <Txt style={s.actionTitle}>Rate Nourish</Txt>
+              <Txt style={s.actionHint}>Takes 10 seconds</Txt>
+            </TouchableOpacity>
+          </View>
+
           {/* ── Feedback ── */}
           <TouchableOpacity
             style={s.feedbackCard}
@@ -1157,4 +1193,10 @@ const s = StyleSheet.create({
   redoInfo:     { flex: 1, gap: 2 },
   redoTxt:      { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
   redoHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 14 },
+
+  actionRow:   { flexDirection: 'row', gap: 10 },
+  actionCard:  { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 14, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  actionEmoji: { fontSize: 24, lineHeight: 30 },
+  actionTitle: { fontSize: 13, fontWeight: '700', color: Colors.primary, lineHeight: 18, textAlign: 'center' },
+  actionHint:  { fontSize: 11, color: Colors.secondary, lineHeight: 14, textAlign: 'center' },
 });
