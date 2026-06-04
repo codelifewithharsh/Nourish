@@ -95,7 +95,12 @@ export default function OnboardingScreen() {
     setSaveError(null);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    if (!user) {
+      // Guest mode — skip save, go straight to the app
+      setSaving(false);
+      router.replace('/(tabs)');
+      return;
+    }
 
     const weightKg = weightUnit === 'lbs'
       ? Math.round(data.weightKg * 0.453592 * 10) / 10
