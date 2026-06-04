@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -665,6 +666,12 @@ export default function LogScreen() {
       }
     });
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      analytics.screenViewed({ screen: 'log' });
+    }, [])
+  );
 
   const handleLookup = useCallback(async (q: string) => {
     const text = q.trim();

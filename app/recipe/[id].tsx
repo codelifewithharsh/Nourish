@@ -16,6 +16,7 @@ import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useRecipe, Ingredient, Step } from '@/features/recipe/useRecipe';
+import { analytics } from '@/lib/analytics';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -58,6 +59,12 @@ export default function RecipeScreen() {
     }
   }, [loading, recipe, error]);
 
+  useEffect(() => {
+    if (!loading && recipe) {
+      analytics.screenViewed({ screen: 'recipe' });
+    }
+  }, [loading, recipe]);
+
   const handleLog = useCallback(async () => {
     if (logging || logged) return;
     setLogging(true);
@@ -71,6 +78,7 @@ export default function RecipeScreen() {
       meal_name: mealName,
       calories, protein, carbs, fat,
     });
+    analytics.recipeLogged({ meal_name: mealName });
     setLogged(true);
     setLogging(false);
   }, [logging, logged, mealName, mealType, calories, protein, carbs, fat]);
@@ -86,12 +94,14 @@ export default function RecipeScreen() {
       ``,
       `Planned with PulseAI · AI Nutritionist`,
     ];
+    analytics.recipeShared({ meal_name: mealName });
     Share.share({ message: lines.filter(Boolean).join('\n') });
-  }, [recipe, calories]);
+  }, [recipe, calories, mealName]);
 
-  const openLink = (url?: string | null) => {
+  const openLink = (url?: string | null, platform?: 'instagram' | 'youtube') => {
     if (!url) return;
     haptic.light();
+    if (platform) analytics.recipeExternalLinkTapped({ platform, meal_name: mealName });
     Linking.openURL(url).catch(() => {});
   };
 
@@ -174,16 +184,16 @@ export default function RecipeScreen() {
         {(recipe.instagram_url || recipe.youtube_url) && (
           <View style={s.section}>
             <SectionHeader emoji="🎬" title="Watch it being made" />
-            {recipe.creator_handle && (
+            {/* {recipe.creator_handle && (
               <Txt style={s.creatorLine}>
                 Recommended for you · <Txt style={s.creatorHandle}>{recipe.creator_handle}</Txt>
               </Txt>
-            )}
+            )} */}
             <View style={s.watchRow}>
               {recipe.instagram_url && (
                 <TouchableOpacity
                   style={s.watchCard}
-                  onPress={() => openLink(recipe.instagram_url)}
+                  onPress={() => openLink(recipe.instagram_url, 'instagram')}
                   activeOpacity={0.85}
                 >
                   <View style={[s.watchIconWrap, { backgroundColor: '#E1306C' }]}>
@@ -198,7 +208,7 @@ export default function RecipeScreen() {
               {recipe.youtube_url && (
                 <TouchableOpacity
                   style={s.watchCard}
-                  onPress={() => openLink(recipe.youtube_url)}
+                  onPress={() => openLink(recipe.youtube_url, 'youtube')}
                   activeOpacity={0.85}
                 >
                   <View style={[s.watchIconWrap, { backgroundColor: '#FF0000' }]}>

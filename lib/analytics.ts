@@ -18,39 +18,51 @@ export function resetUser() {
 // ─── Events ──────────────────────────────────────────────────────────────────
 
 export const analytics = {
-  // Auth
+  // ── Screen views (fire on useFocusEffect / mount) ──────────────────────────
+  screenViewed:             (props: { screen: 'home' | 'meals' | 'log' | 'profile' | 'recipe' }) =>
+                              posthog.capture('screen_viewed', props),
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
   login:                    ()                                                           => posthog.capture('login'),
   logout:                   ()                                                           => posthog.capture('logout'),
 
-  // Onboarding
+  // ── Onboarding ─────────────────────────────────────────────────────────────
   onboardingCompleted:      (props: { goal: string; activity_level: string; diet: string }) =>
                               posthog.capture('onboarding_completed', props),
   onboardingRedone:         ()                                                           => posthog.capture('onboarding_redone'),
 
-  // Meals — home tab
+  // ── Home tab ───────────────────────────────────────────────────────────────
+  profileDrawerOpened:      ()                                                           => posthog.capture('profile_drawer_opened'),
+  notifSettingsOpened:      ()                                                           => posthog.capture('notif_settings_opened'),
+  howItWorksOpened:         ()                                                           => posthog.capture('how_it_works_opened'),
+  swapModalOpened:          (props: { meal_type: string; source: 'home' | 'meals' })    => posthog.capture('swap_modal_opened', props),
+
+  // ── Meals ──────────────────────────────────────────────────────────────────
   mealLogged:               (props: { meal_type: string; calories: number; protein: number }) =>
                               posthog.capture('meal_logged', props),
-  mealSwapped:              (props: { meal_type: string; mood?: string | null })         =>
-                              posthog.capture('meal_swapped', props),
-  snackAdded:               (props: { calories: number; protein: number })               =>
-                              posthog.capture('snack_added', props),
-  recipeViewed:             (props: { meal_type: string; meal_name: string })            =>
-                              posthog.capture('recipe_viewed', props),
+  mealSwapped:              (props: { meal_type: string })                               => posthog.capture('meal_swapped', props),
+  snackAdded:               (props: { calories: number; protein: number })               => posthog.capture('snack_added', props),
+  planDayChanged:           (props: { day: string; is_future: boolean })                 => posthog.capture('plan_day_changed', props),
+  planRegenerated:          ()                                                           => posthog.capture('plan_regenerated'),
 
-  // Log tab
+  // ── Recipe screen ──────────────────────────────────────────────────────────
+  recipeViewed:             (props: { meal_type: string; meal_name: string })            => posthog.capture('recipe_viewed', props),
+  recipeLogged:             (props: { meal_name: string })                               => posthog.capture('recipe_logged', props),
+  recipeShared:             (props: { meal_name: string })                               => posthog.capture('recipe_shared', props),
+  recipeExternalLinkTapped: (props: { platform: 'instagram' | 'youtube'; meal_name: string }) =>
+                              posthog.capture('recipe_external_link_tapped', props),
+
+  // ── Log tab ────────────────────────────────────────────────────────────────
   logEntryAdded:            (props: { meal_type: string; calories: number; protein: number }) =>
                               posthog.capture('log_entry_added', props),
   logEntryDeleted:          ()                                                           => posthog.capture('log_entry_deleted'),
   logEntryEdited:           ()                                                           => posthog.capture('log_entry_edited'),
   nutritionLookedUp:        (props: { query: string })                                  => posthog.capture('nutrition_lookup', props),
 
-  // Water
+  // ── Water ──────────────────────────────────────────────────────────────────
   waterLogged:              (props: { glasses: number })                                 => posthog.capture('water_logged', props),
 
-  // Plan
-  planRegenerated:          ()                                                           => posthog.capture('plan_regenerated'),
-
-  // Profile
+  // ── Profile ────────────────────────────────────────────────────────────────
   profileFieldUpdated:      (props: { field: string })                                  => posthog.capture('profile_field_updated', props),
   kitchenUpdated:           ()                                                           => posthog.capture('kitchen_updated'),
   unitsChanged:             (props: { units: 'metric' | 'imperial' })                   => posthog.capture('units_changed', props),
@@ -58,11 +70,11 @@ export const analytics = {
   notificationTimeChanged:  (props: { meal: string; hour: number })                     => posthog.capture('notification_time_changed', props),
   waterIntervalChanged:     (props: { interval_hours: number })                         => posthog.capture('water_interval_changed', props),
 
-  // Engagement
+  // ── Engagement ─────────────────────────────────────────────────────────────
   founderLinkTapped:        (props: { platform: 'instagram' | 'linkedin' | 'website' }) => posthog.capture('founder_link_tapped', props),
   feedbackTapped:           ()                                                           => posthog.capture('feedback_tapped'),
 
-  // Credits / AI
+  // ── Credits / AI ───────────────────────────────────────────────────────────
   creditsUsed:              (props: { feature: string; cost: number; remaining: number }) =>
                               posthog.capture('credits_used', props),
   outOfCredits:             (props: { feature: string })                                 => posthog.capture('out_of_credits', props),

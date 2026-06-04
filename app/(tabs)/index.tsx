@@ -18,6 +18,7 @@ import { HomeDrawer } from '@/components/HomeDrawer';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { scheduleMealReminders, cancelMealReminders, scheduleWaterReminders, cancelWaterReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
+import { analytics } from '@/lib/analytics';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ export default function HomeScreen() {
   // Cross-tab sync: refetch home data when this tab regains focus
   useFocusEffect(
     useCallback(() => {
+      analytics.screenViewed({ screen: 'home' });
       refresh();
     }, [refresh])
   );
@@ -188,7 +190,7 @@ export default function HomeScreen() {
         {/* ── Header ── */}
         <View style={s.topBar}>
           <View style={s.topLeft}>
-            <TouchableOpacity style={s.avatar} activeOpacity={0.8} onPress={() => setProfileSheetOpen(true)}>
+            <TouchableOpacity style={s.avatar} activeOpacity={0.8} onPress={() => { analytics.profileDrawerOpened(); setProfileSheetOpen(true); }}>
               {avatarUrl
                 ? <Image source={{ uri: avatarUrl }} style={s.avatarImg} />
                 : <Txt style={s.avatarTxt}>{initials}</Txt>
@@ -202,7 +204,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-          <TouchableOpacity style={s.bellBtn} activeOpacity={0.75} onPress={() => setNotifSheetOpen(true)}>
+          <TouchableOpacity style={s.bellBtn} activeOpacity={0.75} onPress={() => { analytics.notifSettingsOpened(); setNotifSheetOpen(true); }}>
             <Bell size={20} color={Colors.accent} strokeWidth={1.8} />
             {notifsEnabled && <View style={s.bellDot} />}
           </TouchableOpacity>
@@ -323,7 +325,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={s.btnLog} activeOpacity={0.85} onPress={(e) => { e.stopPropagation?.(); logMeal(nextMeal); }}>
                   <Txt style={s.btnLogTxt}>Log this meal</Txt>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.btnSwap} activeOpacity={0.85} onPress={(e) => { e.stopPropagation?.(); setSwapMeal(nextMeal); }}>
+                <TouchableOpacity style={s.btnSwap} activeOpacity={0.85} onPress={(e) => { e.stopPropagation?.(); analytics.swapModalOpened({ meal_type: nextMeal.type, source: 'home' }); setSwapMeal(nextMeal); }}>
                   <Txt style={s.btnSwapTxt}>Swap</Txt>
                 </TouchableOpacity>
               </View>
@@ -387,7 +389,7 @@ export default function HomeScreen() {
         eatenProtein={eatenProtein}
         targetProtein={targetProtein}
         onClose={() => setProfileSheetOpen(false)}
-        onShowHowItWorks={() => setHowItWorksOpen(true)}
+        onShowHowItWorks={() => { analytics.howItWorksOpened(); setHowItWorksOpen(true); }}
         onShowNotifications={() => setNotifSheetOpen(true)}
       />
 
@@ -681,6 +683,8 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
     const granted = await requestNotificationPermission();
     if (!granted) return;
     setWaterInterval(val);
+    analytics.waterIntervalChanged({ interval_hours: val });
+    analytics.notificationsToggled({ type: 'water', enabled: val > 0 });
     if (val === 0) await cancelWaterReminders();
     else await scheduleWaterReminders(val);
   };
@@ -688,6 +692,7 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
   const handleMealTime = async (meal: keyof MealTimes, hour: number) => {
     const updated = { ...mealTimes, [meal]: { hour, minute: 0 } };
     setMealTimes(updated);
+    analytics.notificationTimeChanged({ meal, hour });
     if (enabled) await scheduleMealReminders(updated);
   };
 

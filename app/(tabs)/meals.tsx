@@ -384,6 +384,7 @@ export default function MealsScreen() {
   // Also recompute today's index in case the date rolled over midnight.
   useFocusEffect(
     useCallback(() => {
+      analytics.screenViewed({ screen: 'meals' });
       const newToday = todayPlanIndex();
       if (newToday !== todayIndex) {
         setTodayIndex(newToday);
@@ -526,7 +527,7 @@ export default function MealsScreen() {
                   isSelected && s.dayPillActive,
                   !isSelected && isTodayPill && s.dayPillToday,
                 ]}
-                onPress={() => { setSelectedDay(i); haptic.light(); }}
+                onPress={() => { setSelectedDay(i); haptic.light(); analytics.planDayChanged({ day: FULL_DAYS[i], is_future: i > todayIndex }); }}
                 activeOpacity={0.75}
               >
                 <Txt style={[
@@ -582,7 +583,7 @@ export default function MealsScreen() {
                 meal={meal}
                 status={getStatus(meal)}
                 onLog={() => handleLog(meal)}
-                onSwap={() => setSwapTarget(meal)}
+                onSwap={() => { analytics.swapModalOpened({ meal_type: meal.type, source: 'meals' }); setSwapTarget(meal); }}
                 onView={() => { analytics.recipeViewed({ meal_type: meal.type, meal_name: meal.name }); router.push({ pathname: '/recipe/[id]', params: { id: encodeURIComponent(meal.name), type: meal.type, calories: String(meal.calories), protein: String(meal.protein), carbs: String(meal.carbs), fat: String(meal.fat) } }); }}
               />
             ))}

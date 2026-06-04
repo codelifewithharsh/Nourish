@@ -6,7 +6,7 @@ import {
   DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   Flame, Sparkles, ChevronDown, ChevronRight, Check, RotateCw, Minus, Plus,
   Salad, Utensils, Activity, Settings, MessageSquareHeart, Heart, X, ChefHat,
@@ -439,6 +439,12 @@ export default function YouScreen() {
       });
     });
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      analytics.screenViewed({ screen: 'profile' });
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     if (!userId) return;
