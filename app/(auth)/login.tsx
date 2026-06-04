@@ -150,7 +150,7 @@ export default function LoginScreen() {
         <FadeUp delay={200} style={s.headingBlock}>
           <Txt style={s.appName}>Nourish</Txt>
           <Txt style={s.heading}>Eat well. Live better.</Txt>
-          <Txt style={s.subheading}>Finally, food that fits your life</Txt>
+          <Txt style={s.subheading}>Your Personal AI Nutritionist</Txt>
         </FadeUp>
 
         {/* Feature cards */}
