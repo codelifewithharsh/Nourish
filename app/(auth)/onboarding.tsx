@@ -15,6 +15,7 @@ import { PlanReadyScreen } from '@/features/onboarding/components/PlanReadyScree
 import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { supabase } from '@/lib/supabase';
 import { scheduleMealReminders } from '@/lib/notifications';
+import { analytics } from '@/lib/analytics';
 import {
   OnboardingData,
   NutritionTargets,
@@ -141,6 +142,11 @@ export default function OnboardingScreen() {
       setSaveError("Couldn't save your plan — check your connection and try again.");
       return;
     }
+    analytics.onboardingCompleted({
+      goal: data.goal ?? '',
+      activity_level: data.activityLevel ?? '',
+      diet: data.dietType ?? '',
+    });
     router.replace('/(tabs)');
   }, [data, saving, targets, weightUnit, heightUnit]);
 

@@ -13,6 +13,7 @@ import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/credits/CreditsContext';
 import { AIError } from '@/lib/aiClient';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
+import { analytics } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -421,6 +422,7 @@ export default function MealsScreen() {
     haptic.light();
     try {
       await invoke('generate-meal-plan');
+      analytics.planRegenerated();
       await fetchData(userId);
     } catch (err) {
       // CreditsProvider surfaces 402/429; for openai_error fall through silently
@@ -624,6 +626,11 @@ export default function MealsScreen() {
               carbs:     result.carbs,
               fat:       result.fat,
             });
+            if (addingSnack) {
+              analytics.snackAdded({ calories: result.calories, protein: result.protein });
+            } else {
+              analytics.mealSwapped({ meal_type: swapTarget.type });
+            }
             setLoggedTypes((prev) => new Set([...prev, swapTarget.type]));
             setLoggedMealsByType((prev) => ({ ...prev, [swapTarget.type]: {
               type:     swapTarget.type,

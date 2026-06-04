@@ -24,7 +24,8 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { AIError, invokeAI } from '@/lib/aiClient';
-import { DAILY_REFILL } from './costs';
+import { analytics } from '@/lib/analytics';
+import { COST, DAILY_REFILL } from './costs';
 
 interface CreditsCtx {
   balance:        number | null;
@@ -91,6 +92,8 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
       const result = await invokeAI<T>(name, body);
       // Best-effort refresh — every successful call may have changed balance.
       await refresh();
+      const cost = COST[name as keyof typeof COST] ?? 0;
+      analytics.creditsUsed({ feature: name, cost, remaining: balance ?? 0 });
 
       // One-time intro toast after the first successful meal-plan generation.
       // After refresh(), introSeenRef holds the just-fetched flag — if it's
@@ -115,6 +118,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         if (err.code === 'no_credits') {
           refresh();
           setOutOfCreds(true);
+          analytics.outOfCredits({ feature: name });
         } else if (err.code === 'rate_limited') {
           setRateLimit(err.message || 'Daily limit reached — try again tomorrow');
         }

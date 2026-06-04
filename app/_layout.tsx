@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
+import { analytics, resetUser } from '@/lib/analytics';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
 import { WATER_ACTION_ID } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
@@ -40,6 +41,8 @@ export default function RootLayout() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[layout] auth event:', event, 'user:', session?.user?.email ?? 'none');
       if (event === 'SIGNED_OUT') {
+        analytics.logout();
+        resetUser();
         setTimeout(() => router.replace('/(auth)/login'), 0);
       }
     });

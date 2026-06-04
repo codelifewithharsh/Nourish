@@ -3,6 +3,7 @@ import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { WATER_LOGGED_EVENT, PROFILE_UPDATED_EVENT } from '@/lib/events';
+import { analytics } from '@/lib/analytics';
 
 export interface Meal {
   type: 'breakfast' | 'lunch' | 'dinner';
@@ -211,6 +212,7 @@ export function useHomeData() {
       carbs:     meal.carbs,
       fat:       meal.fat,
     });
+    analytics.mealLogged({ meal_type: meal.type, calories: meal.calories, protein: meal.protein });
     fetchAll(userId);
   }, [userId, fetchAll]);
 
@@ -223,6 +225,7 @@ export function useHomeData() {
       { onConflict: 'user_id,date' }
     );
     setData((prev) => prev ? { ...prev, glasses } : prev);
+    analytics.waterLogged({ glasses });
   }, [userId]);
 
   const refresh = useCallback(() => {

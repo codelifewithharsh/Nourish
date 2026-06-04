@@ -15,6 +15,7 @@ import { SvgXml } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
+import { identifyUser, analytics } from '@/lib/analytics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -113,6 +114,8 @@ export default function LoginScreen() {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
+            identifyUser(user.id, { email: user.email });
+            analytics.login();
             const { data } = await supabase
               .from('profiles')
               .select('onboarding_completed')
