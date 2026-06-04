@@ -62,7 +62,7 @@ export default function Root() {
       {/* Logo */}
       <Animated.View style={[s.logoWrap, { opacity: logoOpacity, transform: [{ scale: Animated.multiply(logoScale, logoPulse) }] }]}>
         <Image
-          source={require('@/assets/pulseai-white.png')}
+          source={require('@/assets/app_logo/nourish_logo_white.png')}
           style={s.logo}
           resizeMode="contain"
         />

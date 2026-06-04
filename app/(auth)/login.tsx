@@ -141,7 +141,7 @@ export default function LoginScreen() {
         <FadeUp delay={0} style={s.lottieWrapper}>
           <View style={s.glowBlob} />
           <Image
-            source={require('@/assets/pulseai-white.png')}
+            source={require('@/assets/app_logo/nourish_logo_white.png')}
             style={s.lottie}
             resizeMode="contain"
           />
