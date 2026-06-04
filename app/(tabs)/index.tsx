@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as StoreReview from 'expo-store-review';
 import Reanimated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withTiming, runOnJS,
@@ -158,17 +159,27 @@ export default function HomeScreen() {
     }, [refresh])
   );
 
-  // Auto-show streak share modal on milestones — once per milestone ever
+  // Auto-show streak share modal on milestones — once per milestone ever.
+  // At day 3 also trigger the native rating prompt (fires after share modal closes).
   const MILESTONES = [3, 7, 14, 30];
   useEffect(() => {
     if (milestoneChecked.current || !data || data.streak === 0) return;
     if (!MILESTONES.includes(data.streak)) return;
     milestoneChecked.current = true;
     const key = `@nourish/streak_milestone_${data.streak}`;
-    AsyncStorage.getItem(key).then((seen) => {
+    AsyncStorage.getItem(key).then(async (seen) => {
       if (seen) return;
-      AsyncStorage.setItem(key, '1');
+      await AsyncStorage.setItem(key, '1');
       setStreakShareOpen(true);
+      // Day 3 = first real habit signal — best time to ask for a rating
+      if (data.streak === 3) {
+        setTimeout(async () => {
+          analytics.appRated();
+          if (await StoreReview.isAvailableAsync()) {
+            await StoreReview.requestReview();
+          }
+        }, 800); // just enough for share modal to finish animating in
+      }
     });
   }, [data?.streak]);
 

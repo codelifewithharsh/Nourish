@@ -91,8 +91,6 @@ Fix: store meal times per-user in `profiles`, let the You tab customise them.
 ### 23. No social features
 Streak sharing, leaderboards, sharing a meal plan. Major schema addition + new screens.
 
-### 24. Grocery list export [.....pick this]
-Once kitchen ingredients + a 7-day plan exist, generating a shopping list is one prompt + one screen away.
 
 ### 25. Barcode scanning for packaged foods
 `expo-barcode-scanner` + Open Food Facts API. HealthifyMe / MyFitnessPal do this.
