@@ -1,16 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl,
+  RefreshControl, Modal, Share, ActivityIndicator, Animated, Easing,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
-import { Check, ChevronRight, Sparkles } from 'lucide-react-native';
+import { Check, ChevronRight, Sparkles, ShoppingCart, X, Share2, CheckCircle2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/credits/CreditsContext';
+import { partitionIngredients, toMealKey, type Ingredient } from '@/features/recipe/useRecipe';
 
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { analytics } from '@/lib/analytics';
@@ -266,6 +267,256 @@ const mc = StyleSheet.create({
   loggedName:   { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
 });
 
+// ─── Grocery List Sheet ───────────────────────────────────────────────────────
+
+function GroceryListSheet({
+  visible, plan, onClose,
+}: {
+  visible: boolean;
+  plan:    Day[] | null;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [loading,   setLoading]   = useState(false);
+  const [toBuy,     setToBuy]     = useState<Ingredient[]>([]);
+  const [inKitchen, setInKitchen] = useState<Ingredient[]>([]);
+  const slideY  = useRef(new Animated.Value(600)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  // Merge + deduplicate ingredients across all meals by normalized name
+  function mergeIngredients(lists: Ingredient[][]): Ingredient[] {
+    const seen = new Map<string, Ingredient>();
+    for (const list of lists) {
+      for (const ing of list) {
+        const key = ing.name.toLowerCase().trim();
+        if (!seen.has(key)) seen.set(key, ing);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  useEffect(() => {
+    if (!visible || !plan) return;
+
+    setLoading(true);
+    setToBuy([]);
+    setInKitchen([]);
+
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(slideY,  { toValue: 0, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+    ]).start();
+
+    (async () => {
+      // Collect all unique meal names across the full 7-day plan
+      const mealNames = new Set<string>();
+      for (const day of plan) {
+        for (const meal of day.meals) mealNames.add(meal.name);
+      }
+
+      // Fetch cached recipes + kitchen ingredients in parallel
+      const mealKeys = Array.from(mealNames).map(toMealKey);
+      const [recipesRes, profileRes] = await Promise.all([
+        supabase.from('recipes').select('ingredients').in('meal_key', mealKeys),
+        supabase.from('profiles').select('kitchen_ingredients').single(),
+      ]);
+
+      const kitchenIngredients = profileRes.data?.kitchen_ingredients ?? null;
+
+      // Flatten all ingredients from all cached recipes
+      const allIngredients: Ingredient[] = [];
+      for (const row of recipesRes.data ?? []) {
+        const ings = row.ingredients as unknown as Ingredient[];
+        if (Array.isArray(ings)) allIngredients.push(...ings);
+      }
+
+      const merged = mergeIngredients([allIngredients]);
+      const { fromKitchen, needToBuy } = partitionIngredients(merged, kitchenIngredients);
+      setToBuy(needToBuy);
+      setInKitchen(fromKitchen);
+      setLoading(false);
+    })();
+  }, [visible, plan]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(slideY,  { toValue: 600, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      slideY.setValue(600);
+      opacity.setValue(0);
+      onClose();
+    });
+  };
+
+  const handleShare = async () => {
+    if (toBuy.length === 0) return;
+    const lines = toBuy.map((i) => {
+      const qty = [i.quantity, i.unit].filter(Boolean).join(' ');
+      return qty ? `• ${i.name} — ${qty}` : `• ${i.name}`;
+    });
+    const text = `🛒 Grocery List\n\n${lines.join('\n')}`;
+    try {
+      await Share.share({ message: text });
+      analytics.groceryListExported({ item_count: toBuy.length });
+    } catch {
+      // user dismissed share sheet
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={handleClose}>
+      <Animated.View style={[gl.backdrop, { opacity }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+      </Animated.View>
+      <Animated.View style={[gl.sheet, { paddingBottom: insets.bottom + 16, transform: [{ translateY: slideY }] }]}>
+        {/* Handle */}
+        <View style={gl.handle} />
+
+        {/* Header */}
+        <View style={gl.header}>
+          <View style={gl.headerLeft}>
+            <View style={gl.iconWrap}>
+              <ShoppingCart size={18} color={Colors.accent} strokeWidth={2.2} />
+            </View>
+            <View>
+              <Txt style={gl.title}>Grocery List</Txt>
+              <Txt style={gl.subtitle}>Based on your 7-day plan</Txt>
+            </View>
+          </View>
+          <TouchableOpacity style={gl.closeBtn} onPress={handleClose} activeOpacity={0.7}>
+            <X size={18} color={Colors.secondary} strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <View style={gl.loadingWrap}>
+            <ActivityIndicator color={Colors.accent} />
+            <Txt style={gl.loadingTxt}>Building your list…</Txt>
+          </View>
+        ) : toBuy.length === 0 && inKitchen.length === 0 ? (
+          <View style={gl.emptyWrap}>
+            <Txt style={gl.emptyEmoji}>📦</Txt>
+            <Txt style={gl.emptyTitle}>No recipes cached yet</Txt>
+            <Txt style={gl.emptyBody}>Open each meal's recipe to generate it, then come back here.</Txt>
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={gl.listContent}>
+            {toBuy.length > 0 && (
+              <View style={gl.section}>
+                <Txt style={gl.sectionLabel}>To buy · {toBuy.length} items</Txt>
+                {toBuy.map((ing, i) => (
+                  <View key={i} style={gl.row}>
+                    <View style={gl.bullet} />
+                    <Txt style={gl.ingName}>{ing.name}</Txt>
+                    {(ing.quantity || ing.unit) ? (
+                      <Txt style={gl.ingQty}>{[ing.quantity, ing.unit].filter(Boolean).join(' ')}</Txt>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {inKitchen.length > 0 && (
+              <View style={gl.section}>
+                <Txt style={gl.sectionLabelGreen}>Already in kitchen · {inKitchen.length} items</Txt>
+                {inKitchen.map((ing, i) => (
+                  <View key={i} style={[gl.row, gl.rowGreen]}>
+                    <CheckCircle2 size={13} color="#4CAF50" strokeWidth={2.5} />
+                    <Txt style={[gl.ingName, gl.ingNameGreen]}>{ing.name}</Txt>
+                    {(ing.quantity || ing.unit) ? (
+                      <Txt style={gl.ingQty}>{[ing.quantity, ing.unit].filter(Boolean).join(' ')}</Txt>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        )}
+
+        {/* Share button */}
+        {!loading && toBuy.length > 0 && (
+          <TouchableOpacity style={gl.shareBtn} onPress={handleShare} activeOpacity={0.88}>
+            <Share2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+            <Txt style={gl.shareBtnTxt}>Share list</Txt>
+          </TouchableOpacity>
+        )}
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const gl = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingTop: 10,
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, marginBottom: 16,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.accentLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  title:    { fontSize: 17, fontWeight: '800', color: Colors.primary, lineHeight: 22 },
+  subtitle: { fontSize: 12, color: Colors.secondary, lineHeight: 16 },
+  closeBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  loadingWrap: { alignItems: 'center', gap: 10, paddingVertical: 48 },
+  loadingTxt:  { fontSize: 14, color: Colors.secondary },
+
+  emptyWrap:  { alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 40 },
+  emptyEmoji: { fontSize: 40, lineHeight: 48 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.primary, textAlign: 'center' },
+  emptyBody:  { fontSize: 13, color: Colors.secondary, textAlign: 'center', lineHeight: 18 },
+
+  listContent: { paddingHorizontal: 20, paddingBottom: 16, gap: 20 },
+
+  section:          { gap: 8 },
+  sectionLabel:     { fontSize: 11, fontWeight: '800', color: Colors.secondary, textTransform: 'uppercase', letterSpacing: 0.6, lineHeight: 14 },
+  sectionLabelGreen:{ fontSize: 11, fontWeight: '800', color: '#4CAF50', textTransform: 'uppercase', letterSpacing: 0.6, lineHeight: 14 },
+
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 },
+  rowGreen: { opacity: 0.7 },
+  bullet:   { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent },
+  ingName:      { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 20 },
+  ingNameGreen: { color: Colors.secondary },
+  ingQty:       { fontSize: 12, color: Colors.secondary, fontWeight: '500' },
+
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, height: 50, marginHorizontal: 20, marginTop: 8,
+    backgroundColor: Colors.accent, borderRadius: 14,
+  },
+  shareBtnTxt: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+});
+
 // ─── Add Snack CTA (when no snack in plan) ───────────────────────────────────
 
 function AddSnackCard({ onAdd }: { onAdd: () => void }) {
@@ -322,6 +573,7 @@ export default function MealsScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [swapTarget, setSwapTarget] = useState<Meal | null>(null);
   const [addingSnack, setAddingSnack] = useState(false);
+  const [groceryOpen, setGroceryOpen] = useState(false);
   const invoke = useAI();
 
   // Fetch the plan + today's logs together
@@ -502,9 +754,20 @@ export default function MealsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
         {/* ── Header ── */}
-        <View style={s.header}>
-          <Txt style={s.title}>Meal Plan</Txt>
-          <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+        <View style={s.headerRow}>
+          <View style={s.header}>
+            <Txt style={s.title}>Meal Plan</Txt>
+            <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+          </View>
+          {plan && (
+            <TouchableOpacity
+              style={s.groceryBtn}
+              onPress={() => { haptic.light(); analytics.groceryListOpened(); setGroceryOpen(true); }}
+              activeOpacity={0.8}
+            >
+              <ShoppingCart size={18} color={Colors.accent} strokeWidth={2.2} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Day Selector ── */}
@@ -594,6 +857,12 @@ export default function MealsScreen() {
 
       </ScrollView>
 
+      <GroceryListSheet
+        visible={groceryOpen}
+        plan={plan}
+        onClose={() => setGroceryOpen(false)}
+      />
+
       <SwapMealModal
         visible={!!swapTarget}
         mealType={swapTarget?.type ?? ''}
@@ -665,7 +934,9 @@ const s = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 140, gap: 16 },
 
-  header:   { gap: 2, paddingVertical: 4 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  header:   { gap: 2 },
+  groceryBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
   title:    { fontSize: 28, fontWeight: '800', color: Colors.primary, lineHeight: 34, letterSpacing: -0.5 },
   subtitle: { fontSize: 13, color: Colors.secondary, lineHeight: 18 },
 

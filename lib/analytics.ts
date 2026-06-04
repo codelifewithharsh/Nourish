@@ -74,6 +74,10 @@ export const analytics = {
   founderLinkTapped:        (props: { platform: 'instagram' | 'linkedin' | 'website' }) => posthog.capture('founder_link_tapped', props),
   feedbackTapped:           ()                                                           => posthog.capture('feedback_tapped'),
 
+  // ── Grocery list ───────────────────────────────────────────────────────────
+  groceryListOpened:        ()                                                           => posthog.capture('grocery_list_opened'),
+  groceryListExported:      (props: { item_count: number })                              => posthog.capture('grocery_list_exported', props),
+
   // ── Credits / AI ───────────────────────────────────────────────────────────
   creditsUsed:              (props: { feature: string; cost: number; remaining: number }) =>
                               posthog.capture('credits_used', props),

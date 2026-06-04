@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   Linking, Share, StatusBar, Platform, Animated, Easing,
@@ -8,6 +8,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   ChevronLeft, Share2, Clock, Flame, Check,
   ChefHat, Camera, Play, Lightbulb, ShoppingBasket, Soup,
+  Zap, Wheat, Droplet,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
@@ -236,9 +237,9 @@ export default function RecipeScreen() {
               <Txt style={s.macroBigLbl}>kcal</Txt>
             </View>
             <View style={s.macroGrid}>
-              <MacroChip color="#5B8DB8" value={`${protein}g`} label="protein" />
-              <MacroChip color="#E6A817" value={`${carbs}g`}   label="carbs" />
-              <MacroChip color="#9B59B6" value={`${fat}g`}     label="fat" />
+              <MacroChip color="#5B8DB8" value={`${protein}g`} label="protein" icon={<Zap     size={12} color="#5B8DB8" strokeWidth={2.2} />} />
+              <MacroChip color="#E6A817" value={`${carbs}g`}   label="carbs"   icon={<Wheat   size={12} color="#E6A817" strokeWidth={2.2} />} />
+              <MacroChip color="#9B59B6" value={`${fat}g`}     label="fat"     icon={<Droplet size={12} color="#9B59B6" strokeWidth={2.2} />} />
             </View>
           </View>
         </View>
@@ -267,7 +268,9 @@ export default function RecipeScreen() {
             <View style={s.ingrBlock}>
               <View style={s.ingrLabelRow}>
                 <ShoppingBasket size={12} color={Colors.secondary} strokeWidth={2.5} />
-                <Txt style={s.ingrLabel}>You'll also need</Txt>
+                <Txt style={s.ingrLabel}>
+                  {partitioned.fromKitchen.length > 0 ? "You'll also need" : 'To buy'}
+                </Txt>
               </View>
               {partitioned.needToBuy.map((ing, i) => (
                 <IngredientRow key={`need-${i}`} ing={ing} />
@@ -426,10 +429,10 @@ const sc = StyleSheet.create({
   txt:       { fontSize: 13, color: Colors.secondary, lineHeight: 19, fontWeight: '500' },
 });
 
-function MacroChip({ color, value, label }: { color: string; value: string; label: string }) {
+function MacroChip({ color, value, label, icon }: { color: string; value: string; label: string; icon: React.ReactNode }) {
   return (
     <View style={mch.wrap}>
-      <View style={[mch.dot, { backgroundColor: color }]} />
+      {icon}
       <Txt style={[mch.val, { color }]}>{value}</Txt>
       <Txt style={mch.lbl}>{label}</Txt>
     </View>
@@ -438,7 +441,6 @@ function MacroChip({ color, value, label }: { color: string; value: string; labe
 
 const mch = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 12, paddingVertical: 10, gap: 2 },
-  dot:  { width: 5, height: 5, borderRadius: 2.5 },
   val:  { fontSize: 14, fontWeight: '800', lineHeight: 18 },
   lbl:  { fontSize: 9, color: Colors.secondary, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 12 },
 });
