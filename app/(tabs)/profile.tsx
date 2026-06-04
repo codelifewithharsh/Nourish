@@ -23,7 +23,7 @@ import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/credits/CreditsContext';
 import { AICreditsPill } from '@/features/credits/AICreditsPill';
 import { COST } from '@/features/credits/costs';
-import { AIError } from '@/lib/aiClient';
+
 import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
@@ -527,9 +527,7 @@ export default function YouScreen() {
       await invoke('generate-meal-plan');
       await fetchProfile(userId);
     } catch (err) {
-      if (!(err instanceof AIError) || (err.code !== 'no_credits' && err.code !== 'rate_limited')) {
-        console.warn('generate-meal-plan failed', err);
-      }
+      // CreditsProvider surfaces 402/429; other errors fail silently
     } finally {
       setRegenerating(false);
     }

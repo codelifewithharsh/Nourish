@@ -57,31 +57,26 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const introSeenRef = useRef<boolean>(true);
 
   const refresh = useCallback(async () => {
-    console.log('[credits] refresh start');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('[credits] refresh user:', user?.email ?? 'none');
       if (!user) { setBalance(null); return; }
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('credits, credits_intro_seen')
         .eq('id', user.id)
         .single();
-      console.log('[credits] refresh profile:', data, 'error:', error);
       if (data) {
         setBalance(data.credits);
         introSeenRef.current = !!data.credits_intro_seen;
       }
-    } catch (e) {
-      console.log('[credits] refresh ERROR:', e);
+    } catch {
+      // balance stays as-is on network error
     }
   }, []);
 
   useEffect(() => {
-    console.log('[credits] provider mount');
     refresh();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log('[credits] auth event:', event);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       refresh();
     });
     return () => subscription.unsubscribe();

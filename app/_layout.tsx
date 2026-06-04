@@ -35,11 +35,8 @@ async function handleLogWaterFromNotification() {
 }
 
 export default function RootLayout() {
-  console.log('[layout] render');
   useEffect(() => {
-    console.log('[layout] mount, subscribing to auth');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[layout] auth event:', event, 'user:', session?.user?.email ?? 'none');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         analytics.logout();
         resetUser();

@@ -11,7 +11,7 @@ import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/credits/CreditsContext';
-import { AIError } from '@/lib/aiClient';
+
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { analytics } from '@/lib/analytics';
 
@@ -425,12 +425,8 @@ export default function MealsScreen() {
       await invoke('generate-meal-plan');
       analytics.planRegenerated();
       await fetchData(userId);
-    } catch (err) {
-      // CreditsProvider surfaces 402/429; for openai_error fall through silently
-      // — the stale plan stays visible, which is better than crashing.
-      if (!(err instanceof AIError) || (err.code !== 'no_credits' && err.code !== 'rate_limited')) {
-        console.warn('generate-meal-plan failed', err);
-      }
+    } catch {
+      // CreditsProvider surfaces 402/429; stale plan stays visible on other errors
     } finally {
       setRegenerating(false);
     }

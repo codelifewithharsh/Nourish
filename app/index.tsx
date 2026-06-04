@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { Txt } from '@/components/ui';
 
 export default function Root() {
-  console.log('[index] render');
 
   const logoOpacity  = useRef(new Animated.Value(0)).current;
   const logoScale    = useRef(new Animated.Value(0.6)).current;
@@ -39,27 +38,20 @@ export default function Root() {
   }, []);
 
   useEffect(() => {
-    console.log('[index] mount, calling getSession()');
     const run = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('[index] session resolved:', session?.user?.email ?? 'none');
       if (!session?.user) {
-        console.log('[index] no session → /(auth)/login');
         router.replace('/(auth)/login');
         return;
       }
-      console.log('[index] fetching profile for', session.user.id);
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('onboarding_completed')
         .eq('id', session.user.id)
         .maybeSingle();
-      console.log('[index] profile result:', data, 'error:', error);
-      const dest = data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding';
-      console.log('[index] navigating to', dest);
-      router.replace(dest);
+      router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
     };
-    run().catch((e) => console.log('[index] ERROR:', e));
+    run().catch(() => router.replace('/(auth)/login'));
   }, []);
 
   return (
