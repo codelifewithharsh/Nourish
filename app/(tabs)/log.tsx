@@ -13,6 +13,7 @@ import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/credits/CreditsContext';
 import { COST } from '@/features/credits/costs';
 import { AIError } from '@/lib/aiClient';
+import { analytics } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -674,6 +675,7 @@ export default function LogScreen() {
     try {
       const data = await invoke<NutritionResult>('lookup-nutrition', { query: text });
       haptic.light();
+      analytics.nutritionLookedUp({ query: text });
       setResult(data);
     } catch (err) {
       haptic.warning();
@@ -704,6 +706,7 @@ export default function LogScreen() {
         carbs:     result.carbs,
         fat:       result.fat,
       });
+      analytics.logEntryAdded({ meal_type: selectedType, calories: result.calories, protein: result.protein });
       setResult(null);
       setQuery('');
       fetchLogs(userId);
@@ -716,6 +719,7 @@ export default function LogScreen() {
     if (!userId) return;
     haptic.warning();
     await supabase.from('daily_logs').delete().eq('id', id);
+    analytics.logEntryDeleted();
     fetchLogs(userId);
   }, [userId, fetchLogs]);
 
@@ -733,6 +737,7 @@ export default function LogScreen() {
       .eq('user_id', userId);
     setEditSaving(false);
     if (!error) {
+      analytics.logEntryEdited();
       setEditingEntry(null);
       setLogs((prev) => prev.map((l) => l.id === id ? { ...l, ...updates } : l));
     }

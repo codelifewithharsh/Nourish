@@ -26,6 +26,7 @@ import { COST } from '@/features/credits/costs';
 import { AIError } from '@/lib/aiClient';
 import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
+import { analytics } from '@/lib/analytics';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -477,6 +478,7 @@ export default function YouScreen() {
       return;
     }
     DeviceEventEmitter.emit(PROFILE_UPDATED_EVENT);
+    Object.keys(updates).forEach((field) => analytics.profileFieldUpdated({ field }));
   }, [userId, profile]);
 
   const toggleRow = useCallback((row: OpenRow) => {
@@ -505,6 +507,7 @@ export default function YouScreen() {
     setKitchenSaving(true);
     haptic.success();
     await saveField({ kitchen_ingredients: kitchenText.trim() || null });
+    analytics.kitchenUpdated();
     setKitchenSaving(false);
     setKitchenJustSaved(true);
     setTimeout(() => setKitchenJustSaved(false), 2200);
@@ -539,7 +542,7 @@ export default function YouScreen() {
       'Takes you through setup again and builds a fresh 7-day plan based on your updated goals.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Recalculate', onPress: () => router.push('/(auth)/onboarding') },
+        { text: 'Recalculate', onPress: () => { analytics.onboardingRedone(); router.push('/(auth)/onboarding'); } },
       ]
     );
   }, []);
@@ -894,6 +897,7 @@ export default function YouScreen() {
                     } else {
                       await cancelMealReminders();
                     }
+                    analytics.notificationsToggled({ type: 'meals', enabled: val });
                     setNotificationsEnabled(val);
                   }}
                   trackColor={{ false: Colors.border, true: Colors.accent }}
@@ -909,14 +913,14 @@ export default function YouScreen() {
                 <View style={s.unitToggle}>
                   <TouchableOpacity
                     style={[s.unitOpt, !isImperial && s.unitOptActive]}
-                    onPress={() => saveField({ preferred_units: 'metric' })}
+                    onPress={() => { saveField({ preferred_units: 'metric' }); analytics.unitsChanged({ units: 'metric' }); }}
                     activeOpacity={0.7}
                   >
                     <Txt style={[s.unitOptTxt, !isImperial && s.unitOptTxtActive]}>Metric</Txt>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[s.unitOpt, isImperial && s.unitOptActive]}
-                    onPress={() => saveField({ preferred_units: 'imperial' })}
+                    onPress={() => { saveField({ preferred_units: 'imperial' }); analytics.unitsChanged({ units: 'imperial' }); }}
                     activeOpacity={0.7}
                   >
                     <Txt style={[s.unitOptTxt, isImperial && s.unitOptTxtActive]}>Imperial</Txt>
@@ -941,7 +945,7 @@ export default function YouScreen() {
           <TouchableOpacity
             style={s.feedbackCard}
             activeOpacity={0.8}
-            onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=PulseAI%20feedback').catch(() => {})}
+            onPress={() => { analytics.feedbackTapped(); Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=PulseAI%20feedback').catch(() => {}); }}
           >
             <View style={s.feedbackIcon}>
               <MessageSquareHeart size={16} color={Colors.accent} strokeWidth={2.2} />
@@ -1013,14 +1017,14 @@ function FounderCard() {
       </Txt>
 
       <View style={fc.socialRow}>
-        <TouchableOpacity style={fc.social} onPress={() => open(FOUNDER_LINKS.instagram)} activeOpacity={0.75}>
+        <TouchableOpacity style={fc.social} onPress={() => { analytics.founderLinkTapped({ platform: 'instagram' }); open(FOUNDER_LINKS.instagram); }} activeOpacity={0.75}>
           <SvgXml xml={INSTAGRAM_SVG} width={13} height={13} color={Colors.accent} />
           <Txt style={fc.socialTxt}>@codelifewithharsh</Txt>
         </TouchableOpacity>
-        <TouchableOpacity style={fc.socialIcon} onPress={() => open(FOUNDER_LINKS.linkedin)} activeOpacity={0.75}>
+        <TouchableOpacity style={fc.socialIcon} onPress={() => { analytics.founderLinkTapped({ platform: 'linkedin' }); open(FOUNDER_LINKS.linkedin); }} activeOpacity={0.75}>
           <Briefcase size={13} color={Colors.accent} strokeWidth={2.2} />
         </TouchableOpacity>
-        <TouchableOpacity style={fc.socialIcon} onPress={() => open(FOUNDER_LINKS.website)} activeOpacity={0.75}>
+        <TouchableOpacity style={fc.socialIcon} onPress={() => { analytics.founderLinkTapped({ platform: 'website' }); open(FOUNDER_LINKS.website); }} activeOpacity={0.75}>
           <Globe size={13} color={Colors.accent} strokeWidth={2.2} />
         </TouchableOpacity>
       </View>

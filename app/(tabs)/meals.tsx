@@ -583,17 +583,7 @@ export default function MealsScreen() {
                 status={getStatus(meal)}
                 onLog={() => handleLog(meal)}
                 onSwap={() => setSwapTarget(meal)}
-                onView={() => router.push({
-                  pathname: '/recipe/[id]',
-                  params: {
-                    id: encodeURIComponent(meal.name),
-                    type: meal.type,
-                    calories: String(meal.calories),
-                    protein:  String(meal.protein),
-                    carbs:    String(meal.carbs),
-                    fat:      String(meal.fat),
-                  },
-                })}
+                onView={() => { analytics.recipeViewed({ meal_type: meal.type, meal_name: meal.name }); router.push({ pathname: '/recipe/[id]', params: { id: encodeURIComponent(meal.name), type: meal.type, calories: String(meal.calories), protein: String(meal.protein), carbs: String(meal.carbs), fat: String(meal.fat) } }); }}
               />
             ))}
 
