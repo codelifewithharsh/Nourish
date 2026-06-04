@@ -3,13 +3,19 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, RefreshControl,
   KeyboardAvoidingView, Platform, Switch, Animated, Easing, LayoutAnimation, UIManager, Image, Linking,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import {
-  Flame, Sparkles, ChevronDown, Check, RotateCw, Minus, Plus,
+  Flame, Sparkles, ChevronDown, ChevronRight, Check, RotateCw, Minus, Plus,
   Salad, Utensils, Activity, Settings, MessageSquareHeart, Heart, X, ChefHat,
-  Camera, Briefcase, Globe,
+  Briefcase, Globe,
 } from 'lucide-react-native';
+import { SvgXml } from 'react-native-svg';
+import { PROFILE_UPDATED_EVENT } from '@/lib/events';
+import { showToast } from '@/lib/toast';
+import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -375,10 +381,10 @@ export default function YouScreen() {
     ).start();
   }, []);
 
-  // Compute streak from last 60 days of daily_logs (local dates)
+  // Compute streak from last 365 days of daily_logs (local dates)
   const computeStreak = useCallback(async (uid: string) => {
     const sixtyDaysAgo = new Date();
-    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 365);
     const localStr = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -441,9 +447,36 @@ export default function YouScreen() {
 
   const saveField = useCallback(async (updates: Partial<Profile>) => {
     if (!userId || !profile) return;
+    const prev = profile;
     const merged = { ...profile, ...updates };
-    setProfile(merged);
-    await supabase.from('profiles').update(updates as any).eq('id', userId);
+
+    const TDEE_KEYS: (keyof Profile)[] = ['weight_kg', 'height_cm', 'age', 'activity_level', 'goal'];
+    const touchesTDEE = TDEE_KEYS.some((k) => k in updates);
+
+    const finalUpdates: Partial<Profile> = { ...updates };
+    if (
+      touchesTDEE &&
+      merged.weight_kg && merged.height_cm && merged.age &&
+      merged.activity_level && merged.goal
+    ) {
+      const { dailyCalories, dailyProtein } = calculateNutrition(
+        merged.weight_kg, merged.height_cm, merged.age,
+        merged.activity_level as ActivityLevel, merged.goal as Goal,
+      );
+      finalUpdates.daily_calories = dailyCalories;
+      finalUpdates.daily_protein  = dailyProtein;
+      setProfile({ ...merged, daily_calories: dailyCalories, daily_protein: dailyProtein });
+    } else {
+      setProfile(merged);
+    }
+
+    const { error } = await supabase.from('profiles').update(finalUpdates as any).eq('id', userId);
+    if (error) {
+      setProfile(prev);
+      showToast('Could not save — check your connection', 'error');
+      return;
+    }
+    DeviceEventEmitter.emit(PROFILE_UPDATED_EVENT);
   }, [userId, profile]);
 
   const toggleRow = useCallback((row: OpenRow) => {
@@ -498,6 +531,17 @@ export default function YouScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
     ]);
+  }, []);
+
+  const handleRedoOnboarding = useCallback(() => {
+    Alert.alert(
+      'Recalculate your plan?',
+      'Takes you through setup again and builds a fresh 7-day plan based on your updated goals.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Recalculate', onPress: () => router.push('/(auth)/onboarding') },
+      ]
+    );
   }, []);
 
   // Helpers for unit conversions
@@ -880,6 +924,17 @@ export default function YouScreen() {
                 </View>
               </View>
             </View>
+
+            <TouchableOpacity style={s.redoRow} onPress={handleRedoOnboarding} activeOpacity={0.75}>
+              <View style={s.redoIconWrap}>
+                <RotateCw size={15} color={Colors.accent} strokeWidth={2.2} />
+              </View>
+              <View style={s.redoInfo}>
+                <Txt style={s.redoTxt}>Recalculate my nutrition plan</Txt>
+                <Txt style={s.redoHint}>Re-run setup to refresh your targets</Txt>
+              </View>
+              <ChevronRight size={16} color={Colors.secondary} strokeWidth={2} />
+            </TouchableOpacity>
           </View>
 
           {/* ── Feedback ── */}
@@ -905,7 +960,7 @@ export default function YouScreen() {
           {/* ── Meet the founder ── */}
           <FounderCard />
 
-          <Txt style={s.version}>PulseAI · v1.0 · Made with 🌿 in India</Txt>
+          <Txt style={s.version}>PulseAI · v1.0</Txt>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -919,6 +974,12 @@ const FOUNDER_LINKS = {
   linkedin:  'https://www.linkedin.com/in/code-life-with-harsh/',
   website:   'https://codelifewithharsh.vercel.app/',
 };
+
+const INSTAGRAM_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+</svg>`;
 
 function FounderCard() {
   const open = (url: string) => {
@@ -953,7 +1014,7 @@ function FounderCard() {
 
       <View style={fc.socialRow}>
         <TouchableOpacity style={fc.social} onPress={() => open(FOUNDER_LINKS.instagram)} activeOpacity={0.75}>
-          <Camera size={13} color={Colors.accent} strokeWidth={2.2} />
+          <SvgXml xml={INSTAGRAM_SVG} width={13} height={13} color={Colors.accent} />
           <Txt style={fc.socialTxt}>@codelifewithharsh</Txt>
         </TouchableOpacity>
         <TouchableOpacity style={fc.socialIcon} onPress={() => open(FOUNDER_LINKS.linkedin)} activeOpacity={0.75}>
@@ -964,7 +1025,7 @@ function FounderCard() {
         </TouchableOpacity>
       </View>
 
-      <Txt style={fc.stamp}>Built solo, with love 🌿</Txt>
+      <Txt style={fc.stamp}>Built with ❤️ for Indian kitchens</Txt>
     </View>
   );
 }
@@ -1082,4 +1143,10 @@ const s = StyleSheet.create({
   signOutTxt: { fontSize: 13, fontWeight: '500', color: Colors.secondary, lineHeight: 17, textDecorationLine: 'underline' },
 
   version: { textAlign: 'center', fontSize: 11, color: Colors.secondary, marginTop: 4 },
+
+  redoRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: Colors.surface, borderRadius: 14, marginTop: 10 },
+  redoIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
+  redoInfo:     { flex: 1, gap: 2 },
+  redoTxt:      { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
+  redoHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 14 },
 });

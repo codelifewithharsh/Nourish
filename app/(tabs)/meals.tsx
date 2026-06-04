@@ -310,7 +310,7 @@ const sm = StyleSheet.create({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function MealsScreen() {
-  const todayIndex = todayPlanIndex();
+  const [todayIndex,  setTodayIndex]  = useState(todayPlanIndex());
   const [selectedDay, setSelectedDay] = useState(todayIndex);
   const [plan, setPlan] = useState<Day[] | null>(null);
   const [loggedTypes, setLoggedTypes] = useState<Set<string>>(new Set());
@@ -379,11 +379,17 @@ export default function MealsScreen() {
     });
   }, []);
 
-  // Cross-tab sync: refetch logs when meals tab gains focus
+  // Cross-tab sync: refetch logs when meals tab gains focus.
+  // Also recompute today's index in case the date rolled over midnight.
   useFocusEffect(
     useCallback(() => {
+      const newToday = todayPlanIndex();
+      if (newToday !== todayIndex) {
+        setTodayIndex(newToday);
+        setSelectedDay(newToday);
+      }
       if (userId) fetchLogsOnly(userId);
-    }, [userId, fetchLogsOnly])
+    }, [userId, fetchLogsOnly, todayIndex])
   );
 
   const onRefresh = useCallback(() => {
@@ -603,6 +609,7 @@ export default function MealsScreen() {
         visible={!!swapTarget}
         mealType={swapTarget?.type ?? ''}
         currentMealName={addingSnack ? 'nothing yet' : (swapTarget?.name ?? '')}
+        isAdd={addingSnack}
         onCancel={() => { setSwapTarget(null); setAddingSnack(false); }}
         onConfirm={async (result: SwapResult, updatePlan: boolean) => {
           if (swapTarget && userId) {

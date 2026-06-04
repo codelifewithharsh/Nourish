@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
@@ -11,7 +12,6 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
-import LottieView from 'lottie-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -111,6 +111,15 @@ export default function LoginScreen() {
 
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('onboarding_completed')
+              .eq('id', user.id)
+              .maybeSingle();
+            router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
+          }
         }
       }
     } finally {
@@ -128,16 +137,16 @@ export default function LoginScreen() {
       <View style={[s.top, { paddingTop: insets.top + 24 }]}>
         <FadeUp delay={0} style={s.lottieWrapper}>
           <View style={s.glowBlob} />
-          <LottieView
-            source={require('@/assets/lottie/plant_grow.json')}
+          <Image
+            source={require('@/assets/pulseai-white.png')}
             style={s.lottie}
-            autoPlay
-            loop
+            resizeMode="contain"
           />
         </FadeUp>
 
         <FadeUp delay={200} style={s.headingBlock}>
-          <Txt style={s.heading}>Your Personal{'\n'}Nutritionist</Txt>
+          <Txt style={s.appName}>PulseAI</Txt>
+          <Txt style={s.heading}>Your Personal Nutritionist</Txt>
           <Txt style={s.subheading}>Finally, food that fits your life</Txt>
         </FadeUp>
 
@@ -219,28 +228,40 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(76,175,130,0.12)',
   },
   lottieWrapper: {
-    width: 160,
+    width: 350,
     height: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   lottie: {
-    width: 90,
-    height: 90,
+    width: 350,
+    height: 150,
+    shadowColor: '#7FFFD4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
   },
   headingBlock: {
     alignItems: 'center',
     marginBottom: 24,
     gap: 4,
   },
-  heading: {
-    fontSize: 32,
+  appName: {
+    fontSize: 42,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -1,
+    lineHeight: 48,
+    marginBottom: 4,
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.65)',
     textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: -0.5,
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
   subheading: {
     fontSize: 14,

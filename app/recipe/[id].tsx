@@ -84,7 +84,7 @@ export default function RecipeScreen() {
       ``,
       `${recipe.prep_minutes ?? 20} mins · ${recipe.difficulty ?? 'easy'} · ${calories || '—'} kcal`,
       ``,
-      `Made with PulseAI — your AI nutrition companion 🌿`,
+      `Planned with PulseAI · AI Nutritionist`,
     ];
     Share.share({ message: lines.filter(Boolean).join('\n') });
   }, [recipe, calories]);

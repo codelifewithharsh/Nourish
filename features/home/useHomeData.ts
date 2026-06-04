@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { WATER_LOGGED_EVENT } from '@/app/_layout';
+import { WATER_LOGGED_EVENT, PROFILE_UPDATED_EVENT } from '@/lib/events';
 
 export interface Meal {
   type: 'breakfast' | 'lunch' | 'dinner';
@@ -68,10 +68,10 @@ export function useHomeData() {
   const fetchAll = useCallback(async (uid: string, avatarUrl: string | null = avatarUrlRef.current) => {
     const today = todayStr();
 
-    // Fetch last 60 days of logs to calculate streak + this week
-    const sixtyDaysAgo = new Date();
-    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-    const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().split('T')[0];
+    // Fetch last 365 days of logs to calculate streak + this week
+    const yearAgo = new Date();
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    const sixtyDaysAgoStr = yearAgo.toISOString().split('T')[0];
 
     const [profileRes, mealPlanRes, logsRes, waterRes, historyRes] = await Promise.all([
       supabase.from('profiles').select('name, email, goal, daily_calories, daily_protein').eq('id', uid).single(),
@@ -230,11 +230,14 @@ export function useHomeData() {
   }, [userId, fetchAll]);
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener(WATER_LOGGED_EVENT, ({ glasses }: { glasses: number }) => {
+    const waterSub = DeviceEventEmitter.addListener(WATER_LOGGED_EVENT, ({ glasses }: { glasses: number }) => {
       setData((prev) => prev ? { ...prev, glasses } : prev);
     });
-    return () => sub.remove();
-  }, []);
+    const profileSub = DeviceEventEmitter.addListener(PROFILE_UPDATED_EVENT, () => {
+      if (userId) fetchAll(userId);
+    });
+    return () => { waterSub.remove(); profileSub.remove(); };
+  }, [userId, fetchAll]);
 
   return { data, loading, logMeal, updateWater, refresh };
 }

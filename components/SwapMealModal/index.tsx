@@ -4,11 +4,11 @@ import {
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
   Animated, Easing, Switch, ScrollView,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withTiming, runOnJS,
 } from 'react-native-reanimated';
-import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles, ArrowUp, X, Check, Lightbulb } from 'lucide-react-native';
 import { haptic } from '@/lib/haptics';
@@ -34,10 +34,13 @@ interface Props {
   visible: boolean;
   mealType: string;
   currentMealName: string;
+  isAdd?: boolean; // true when adding a new snack (not swapping an existing meal)
   // Confirm receives the meal + whether to also persist into the plan
   onConfirm: (meal: SwapResult, updatePlan: boolean) => void;
   onCancel: () => void;
 }
+
+const SWAP_PLAN_PREF_KEY = '@pulseai/swap_update_plan';
 
 const MOODS: { key: Mood; emoji: string; label: string }[] = [
   { key: 'light',    emoji: '🥗', label: 'Lighter' },
@@ -55,7 +58,7 @@ const MEAL_EMOJI: Record<string, string> = {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, onCancel }: Props) {
+export function SwapMealModal({ visible, mealType, currentMealName, isAdd = false, onConfirm, onCancel }: Props) {
   const insets = useSafeAreaInsets();
 
   // Freeze displayed values while the dismiss animation plays out.
@@ -75,9 +78,21 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
   const [result, setResult] = useState<(SwapResult & { reason?: string; serving?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updatePlan, setUpdatePlan] = useState(false);
-  const [inputFocused, setInputFocused] = useState(false);
   const [modalMounted, setModalMounted] = useState(false);
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
+
+  // Load persisted "update my plan" preference once on mount
+  useEffect(() => {
+    AsyncStorage.getItem(SWAP_PLAN_PREF_KEY).then((val) => {
+      if (val === 'true') setUpdatePlan(true);
+    });
+  }, []);
+
+  const handleUpdatePlanToggle = useCallback((v: boolean) => {
+    setUpdatePlan(v);
+    haptic.light();
+    AsyncStorage.setItem(SWAP_PLAN_PREF_KEY, String(v));
+  }, []);
   const inputRef = useRef<TextInput>(null);
   const invoke = useAI();
 
@@ -105,13 +120,11 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
     setError(null);
     setLoading(false);
     setUpdatePlan(false);
-    setInputFocused(false);
     setModalMounted(false);
     setSelectedMood(null);
   };
 
   const dismiss = useCallback(() => {
-    'worklet';
     translateY.value = withTiming(600, { duration: 200 });
     backdropOpacity.value = withTiming(0, { duration: 180 }, (finished) => {
       if (finished) {
@@ -216,21 +229,20 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
 
   return (
     <Modal visible={modalMounted || visible} transparent animationType="none" onRequestClose={handleClose} statusBarTranslucent>
-      <FullWindowOverlay>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Reanimated.View style={[StyleSheet.absoluteFill, s.backdropColor, backdropStyle]} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+        <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, s.backdropColor, backdropStyle]} />
         <View style={s.overlay}>
           <TouchableOpacity style={s.overlayDismiss} activeOpacity={1} onPress={handleClose} />
-          <Reanimated.View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 24) }, sheetStyle]}>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Reanimated.View collapsable={false} style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 24) }, sheetStyle]}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
 
                 {/* ── Header ── */}
                 <View style={s.header}>
                   <View style={s.headerLeft}>
                     <Txt style={s.headerEmoji}>{mealEmoji}</Txt>
                     <View style={s.headerInfo}>
-                      <Txt style={s.headerTitle}>Swap {mealLabel}</Txt>
-                      <Txt style={s.headerSub} numberOfLines={1}>Currently: {displayMealName}</Txt>
+                      <Txt style={s.headerTitle}>{isAdd ? `Add a ${mealLabel}` : `Swap ${mealLabel}`}</Txt>
+                      {!isAdd && <Txt style={s.headerSub} numberOfLines={1}>Currently: {displayMealName}</Txt>}
                     </View>
                   </View>
                   <TouchableOpacity style={s.closeBtn} onPress={handleClose} activeOpacity={0.7} hitSlop={10}>
@@ -241,7 +253,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
                 {!result && (
                   <>
                     {/* ── AI Hero Input ── */}
-                    <View style={[s.aiCard, inputFocused && s.aiCardFocused]}>
+                    <View style={s.aiCard}>
                       <View style={s.aiTopRow}>
                         <Animated.View style={[s.sparkleWrap, { transform: [{ scale: sparklePulse }] }]}>
                           <Sparkles size={14} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} fillOpacity={0.2} />
@@ -258,8 +270,6 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
                         value={query}
                         onChangeText={setQuery}
                         onSubmitEditing={handleTextLookup}
-                        onFocus={() => setInputFocused(true)}
-                        onBlur={() => setInputFocused(false)}
                         returnKeyType="search"
                         multiline
                         scrollEnabled={false}
@@ -370,7 +380,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
                     {/* Update plan toggle */}
                     <TouchableOpacity
                       style={s.planToggleRow}
-                      onPress={() => { setUpdatePlan(!updatePlan); haptic.light(); }}
+                      onPress={() => handleUpdatePlanToggle(!updatePlan)}
                       activeOpacity={0.7}
                     >
                       <View style={s.planToggleLeft}>
@@ -381,7 +391,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
                       </View>
                       <Switch
                         value={updatePlan}
-                        onValueChange={(v) => { setUpdatePlan(v); haptic.light(); }}
+                        onValueChange={handleUpdatePlanToggle}
                         trackColor={{ false: Colors.border, true: Colors.accent }}
                         thumbColor="#FFFFFF"
                       />
@@ -411,7 +421,6 @@ export function SwapMealModal({ visible, mealType, currentMealName, onConfirm, o
           </Reanimated.View>
         </View>
       </KeyboardAvoidingView>
-      </FullWindowOverlay>
     </Modal>
   );
 }
@@ -457,7 +466,6 @@ const s = StyleSheet.create({
 
   // AI hero
   aiCard:        { backgroundColor: Colors.background, borderRadius: 18, padding: 14, gap: 10, borderWidth: 1.5, borderColor: Colors.border, marginTop: 4 },
-  aiCardFocused: { borderColor: Colors.accent, shadowColor: Colors.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8 },
   aiTopRow:      { flexDirection: 'row', alignItems: 'center', gap: 7 },
   sparkleWrap:   { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
   aiLabel:       { fontSize: 11, fontWeight: '800', color: Colors.accent, letterSpacing: 0.5, textTransform: 'uppercase' },

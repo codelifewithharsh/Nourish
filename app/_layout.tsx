@@ -9,8 +9,8 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
 import { WATER_ACTION_ID } from '@/lib/notifications';
-
-export const WATER_LOGGED_EVENT = 'water_logged_from_notification';
+import { WATER_LOGGED_EVENT } from '@/lib/events';
+import { ToastContainer } from '@/components/ui';
 
 async function handleLogWaterFromNotification() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -65,6 +65,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="recipe/[id]" />
         </Stack>
+        <ToastContainer />
       </CreditsProvider>
     </SafeAreaProvider>
   );

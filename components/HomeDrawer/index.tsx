@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   Modal, View, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, Dimensions, Alert, Linking, Image,
+  PanResponder,
 } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +63,23 @@ export function HomeDrawer({
     ]).start(() => onClose());
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        g.dx < -8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) slideX.setValue(Math.max(g.dx, -DRAWER_W));
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -(DRAWER_W * 0.3) || g.vx < -0.5) {
+          close();
+        } else {
+          Animated.spring(slideX, { toValue: 0, useNativeDriver: true, tension: 100, friction: 8 }).start();
+        }
+      },
+    })
+  ).current;
+
   const goToYou = () => {
     haptic.light();
     close();
@@ -90,6 +108,7 @@ export function HomeDrawer({
 
         {/* Sliding drawer */}
         <Animated.View
+          {...panResponder.panHandlers}
           style={[
             d.drawer,
             { width: DRAWER_W, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16, transform: [{ translateX: slideX }] },

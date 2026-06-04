@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  Animated, Easing,
+  Animated, Easing, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sparkles, X, Trash2, ArrowUp, Check } from 'lucide-react-native';
+import { Sparkles, X, Trash2, ArrowUp, Check, Pencil } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -400,14 +400,115 @@ const nr = StyleSheet.create({
   confirmTxt:     { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22 },
 });
 
+// ─── Edit Entry Modal ─────────────────────────────────────────────────────────
+
+function EditEntryModal({
+  entry, visible, saving, onSave, onClose,
+}: {
+  entry: LogEntry | null;
+  visible: boolean;
+  saving: boolean;
+  onSave: (id: string, updates: { meal_type: MealType; meal_name: string }) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(entry?.meal_name ?? '');
+  const [type, setType] = useState<MealType>((entry?.meal_type ?? 'lunch') as MealType);
+
+  useEffect(() => {
+    if (entry) { setName(entry.meal_name); setType(entry.meal_type as MealType); }
+  }, [entry?.id]);
+
+  if (!entry) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={em.backdrop} activeOpacity={1} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={em.kvWrap}>
+        <View style={em.sheet}>
+          <View style={em.handle} />
+          <View style={em.headerRow}>
+            <Txt style={em.title}>Edit entry</Txt>
+            <TouchableOpacity onPress={onClose} hitSlop={10} style={em.closeBtn}>
+              <X size={18} color={Colors.secondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+
+          <Txt style={em.fieldLabel}>Meal name</Txt>
+          <TextInput
+            style={em.nameInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. 2 rotis with dal"
+            placeholderTextColor={Colors.secondary}
+            returnKeyType="done"
+            autoCorrect={false}
+          />
+
+          <Txt style={em.fieldLabel}>Meal type</Txt>
+          <View style={em.typeRow}>
+            {MEAL_TYPES.map((t) => {
+              const isActive = type === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[em.typePill, isActive && { backgroundColor: MEAL_COLOR[t] + '15', borderColor: MEAL_COLOR[t] }]}
+                  onPress={() => setType(t)}
+                  activeOpacity={0.75}
+                >
+                  <Txt style={em.typeEmoji}>{MEAL_EMOJI[t]}</Txt>
+                  <Txt style={[em.typePillTxt, isActive && { color: MEAL_COLOR[t], fontWeight: '700' }]}>
+                    {MEAL_LABEL[t]}
+                  </Txt>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            style={[em.saveBtn, (saving || !name.trim()) && em.saveBtnDisabled]}
+            onPress={() => onSave(entry.id, { meal_type: type, meal_name: name.trim() })}
+            activeOpacity={0.88}
+            disabled={saving || !name.trim()}
+          >
+            {saving
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <Txt style={em.saveTxt}>Save changes</Txt>
+            }
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const em = StyleSheet.create({
+  backdrop:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  kvWrap:    { flex: 1, justifyContent: 'flex-end' },
+  sheet:     { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12, gap: 12 },
+  handle:    { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 4 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title:     { fontSize: 18, fontWeight: '800', color: Colors.primary, lineHeight: 24, letterSpacing: -0.2 },
+  closeBtn:  { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  fieldLabel:{ fontSize: 11, fontWeight: '800', color: Colors.secondary, letterSpacing: 0.6, textTransform: 'uppercase' },
+  nameInput: { backgroundColor: Colors.background, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, fontSize: 16, fontWeight: '600', color: Colors.primary, borderWidth: 1.5, borderColor: Colors.border },
+  typeRow:   { flexDirection: 'row', gap: 6 },
+  typePill:  { flex: 1, flexDirection: 'column', alignItems: 'center', gap: 3, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
+  typeEmoji: { fontSize: 18, lineHeight: 22 },
+  typePillTxt:{ fontSize: 11, fontWeight: '600', color: Colors.secondary, lineHeight: 14 },
+  saveBtn:   { height: 52, backgroundColor: Colors.accent, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  saveBtnDisabled: { opacity: 0.45 },
+  saveTxt:   { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22 },
+});
+
 // ─── Timeline Entry ───────────────────────────────────────────────────────────
 
 function TimelineEntry({
-  type, entries, onDelete,
+  type, entries, onDelete, onEdit,
 }: {
   type: MealType;
   entries: LogEntry[];
   onDelete: (id: string) => void;
+  onEdit: (entry: LogEntry) => void;
 }) {
   const color = MEAL_COLOR[type];
   const totalCal = entries.reduce((s, e) => s + e.calories, 0);
@@ -436,9 +537,14 @@ function TimelineEntry({
                 {entry.calories} kcal · {entry.protein}P · {entry.carbs}C · {entry.fat}F
               </Txt>
             </View>
-            <TouchableOpacity onPress={() => onDelete(entry.id)} hitSlop={10} style={te.delBtn}>
-              <Trash2 size={15} color={Colors.secondary} strokeWidth={1.8} />
-            </TouchableOpacity>
+            <View style={te.entryActions}>
+              <TouchableOpacity onPress={() => onEdit(entry)} hitSlop={10} style={te.actionBtn}>
+                <Pencil size={14} color={Colors.secondary} strokeWidth={1.8} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onDelete(entry.id)} hitSlop={10} style={te.actionBtn}>
+                <Trash2 size={14} color={Colors.secondary} strokeWidth={1.8} />
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </View>
@@ -458,10 +564,11 @@ const te = StyleSheet.create({
   type:        { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
   totalCal:    { fontSize: 13, fontWeight: '700', color: Colors.primary },
   entry:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
-  entryInfo:   { flex: 1, gap: 2 },
-  entryName:   { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
-  entryMacros: { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
-  delBtn:      { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  entryInfo:    { flex: 1, gap: 2 },
+  entryName:    { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
+  entryMacros:  { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
+  entryActions: { flexDirection: 'row', gap: 4 },
+  actionBtn:    { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 });
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
@@ -500,6 +607,8 @@ export default function LogScreen() {
   const [recentMeals, setRecentMeals] = useState<RecentMeal[]>([]);
   const [targetCalories, setTargetCalories] = useState(2200);
   const [inputFocused, setInputFocused] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<LogEntry | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const invoke = useAI();
 
@@ -610,6 +719,25 @@ export default function LogScreen() {
     fetchLogs(userId);
   }, [userId, fetchLogs]);
 
+  const handleEditSave = useCallback(async (
+    id: string,
+    updates: { meal_type: MealType; meal_name: string },
+  ) => {
+    if (!userId) return;
+    setEditSaving(true);
+    haptic.light();
+    const { error } = await supabase
+      .from('daily_logs')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', userId);
+    setEditSaving(false);
+    if (!error) {
+      setEditingEntry(null);
+      setLogs((prev) => prev.map((l) => l.id === id ? { ...l, ...updates } : l));
+    }
+  }, [userId]);
+
   // Recent chip with cached macros → skip AI entirely, jump straight to the
   // confirmation card. Quick-add chip (no cache) → just populate the input;
   // user has to tap send to spend the credit.
@@ -642,6 +770,13 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <EditEntryModal
+        entry={editingEntry}
+        visible={editingEntry !== null}
+        saving={editSaving}
+        onSave={handleEditSave}
+        onClose={() => setEditingEntry(null)}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -702,6 +837,7 @@ export default function LogScreen() {
                   type={type}
                   entries={entries}
                   onDelete={handleDelete}
+                  onEdit={setEditingEntry}
                 />
               ))}
             </View>

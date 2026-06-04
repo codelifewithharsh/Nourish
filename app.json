@@ -20,6 +20,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "notification": {
+        "icon": "./assets/android-icon-monochrome.png",
+        "color": "#1A3A2A"
+      },
       "predictiveBackGestureEnabled": false,
       "package": "com.pulseai.app",
       "versionCode": 1

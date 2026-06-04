@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Switch } from 'react-native';
 import Reanimated, {
   useSharedValue, useAnimatedStyle,
-  withSpring, withTiming,
+  withSpring, withTiming, runOnJS,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, GlassWater, Droplets } from 'lucide-react-native';
@@ -152,6 +152,13 @@ export default function HomeScreen() {
     }, [refresh])
   );
 
+  // Auto-poll every 5 s while the meal plan hasn't generated yet
+  useEffect(() => {
+    if (loading || !data || data.meals.length > 0) return;
+    const id = setInterval(refresh, 5000);
+    return () => clearInterval(id);
+  }, [loading, data?.meals.length, refresh]);
+
   if (loading || !data) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
@@ -278,8 +285,11 @@ export default function HomeScreen() {
         {/* ── Section 3: Next Meal ── */}
         {meals.length === 0 ? (
           <View style={s.card16}>
-            <Txt style={s.mealName}>Generating your meal plan...</Txt>
-            <Txt style={s.mealMacros}>Your personalized plan will appear here shortly</Txt>
+            <View style={s.row}>
+              <Txt style={s.mealName}>🍳 Your plan is cooking…</Txt>
+              <ActivityIndicator size="small" color={Colors.accent} />
+            </View>
+            <Txt style={s.mealMacros}>Usually ready in ~30 s — refreshing automatically</Txt>
           </View>
         ) : nextMeal ? (
           <View>
@@ -645,16 +655,17 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
 
+  const closeSheet = useCallback(() => {
+    setModalMounted(false);
+    onClose();
+  }, [onClose]);
+
   const dismiss = useCallback(() => {
-    'worklet';
     translateY.value = withTiming(600, { duration: 200 });
     backdropOpacity.value = withTiming(0, { duration: 180 }, (finished) => {
-      if (finished) {
-        setModalMounted(false);
-        onClose();
-      }
+      if (finished) runOnJS(closeSheet)();
     });
-  }, [onClose]);
+  }, [closeSheet]);
 
   useEffect(() => {
     if (visible) {

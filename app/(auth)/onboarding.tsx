@@ -36,6 +36,7 @@ export default function OnboardingScreen() {
   const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');
   const [targets, setTargets] = useState<NutritionTargets>({ dailyCalories: 2000, dailyProtein: 120 });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [data, setData] = useState<OnboardingData>({
     goal: null,
@@ -90,50 +91,57 @@ export default function OnboardingScreen() {
   const handleGetStarted = useCallback(async () => {
     if (saving) return;
     setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const weightKg = weightUnit === 'lbs'
-          ? Math.round(data.weightKg * 0.453592 * 10) / 10
-          : data.weightKg;
-        const heightCm = heightUnit === 'ft'
-          ? Math.round(data.heightCm * 2.54 * 10) / 10
-          : data.heightCm;
+    setSaveError(null);
 
-        const { error } = await supabase.from('profiles').upsert({
-          id: user.id,
-          email: user.email ?? '',
-          name: user.user_metadata?.full_name ?? '',
-          goal: data.goal ?? 'stay_healthy',
-          age: data.age,
-          weight_kg: weightKg,
-          height_cm: heightCm,
-          activity_level: data.activityLevel ?? 'moderate',
-          diet_type: data.dietType,
-          cuisines: data.cuisines,
-          restrictions: data.restrictions,
-          daily_calories: targets.dailyCalories,
-          daily_protein: targets.dailyProtein,
-          preferred_units: weightUnit === 'lbs' ? 'imperial' : 'metric',
-          onboarding_completed: true,
-        });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
 
-        if (error) {
-          console.log('[onboarding] upsert error:', error);
-        } else {
-          // Fire meal plan generation and notification scheduling in background
-          supabase.functions.invoke('generate-meal-plan').catch((e) =>
-            console.log('[onboarding] meal plan generation error:', e)
-          );
-          scheduleMealReminders().catch(() => {});
-        }
+    const weightKg = weightUnit === 'lbs'
+      ? Math.round(data.weightKg * 0.453592 * 10) / 10
+      : data.weightKg;
+    const heightCm = heightUnit === 'ft'
+      ? Math.round(data.heightCm * 2.54 * 10) / 10
+      : data.heightCm;
+
+    const payload = {
+      id: user.id,
+      email: user.email ?? '',
+      name: user.user_metadata?.full_name ?? '',
+      goal: data.goal ?? 'stay_healthy',
+      age: data.age,
+      weight_kg: weightKg,
+      height_cm: heightCm,
+      activity_level: data.activityLevel ?? 'moderate',
+      diet_type: data.dietType,
+      cuisines: data.cuisines,
+      restrictions: data.restrictions,
+      daily_calories: targets.dailyCalories,
+      daily_protein: targets.dailyProtein,
+      preferred_units: weightUnit === 'lbs' ? 'imperial' : 'metric',
+      onboarding_completed: true,
+    };
+
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise<void>((r) => setTimeout(r, attempt * 1500));
+      try {
+        const { error } = await supabase.from('profiles').upsert(payload);
+        if (error) throw new Error(error.message);
+        lastError = null;
+        supabase.functions.invoke('generate-meal-plan').catch(() => {});
+        scheduleMealReminders().catch(() => {});
+        break;
+      } catch (e) {
+        lastError = e as Error;
       }
-    } catch (_) {
-      // offline-safe — still navigate even if save fails
-    } finally {
-      setSaving(false);
-      router.replace('/(tabs)');
     }
+
+    setSaving(false);
+    if (lastError) {
+      setSaveError("Couldn't save your plan — check your connection and try again.");
+      return;
+    }
+    router.replace('/(tabs)');
   }, [data, saving, targets, weightUnit, heightUnit]);
 
   const toggleCuisine = useCallback((c: CuisinePreference) => {
@@ -210,6 +218,8 @@ export default function OnboardingScreen() {
             dietType={data.dietType}
             restrictions={data.restrictions}
             weightKg={data.weightKg}
+            saving={saving}
+            saveError={saveError}
             onGetStarted={handleGetStarted}
           />
         )}

@@ -62,9 +62,9 @@ export async function scheduleMealReminders(times: MealTimes = DEFAULT_MEAL_TIME
   }
 
   const reminders = [
-    { ...times.breakfast, title: 'Good morning! 🌅', body: "Don't forget to log your breakfast and start the day strong." },
-    { ...times.lunch,     title: 'Lunch time 🍛',    body: "Log your lunch to stay on track with your daily targets." },
-    { ...times.dinner,    title: 'Evening check-in 🌙', body: "How's your day going? Log dinner and hit your goals." },
+    { ...times.breakfast, title: 'Breakfast time 🌅', body: "What's on the plate this morning? Log it before the day gets away." },
+    { ...times.lunch,     title: 'Midday check-in 🍛', body: "Lunch break — log your meal and keep the streak alive." },
+    { ...times.dinner,    title: 'Dinner o\'clock 🌙', body: "Almost done for the day. Log dinner and see how close you are to your goal." },
   ];
 
   for (const r of reminders) {
@@ -111,8 +111,8 @@ export async function scheduleWaterReminders(intervalHours: number, wakeHour = 8
   for (let h = wakeHour; h < sleepHour; h += intervalHours) {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '💧 Time to hydrate!',
-        body: "Stay on track — have you had a glass of water recently?",
+        title: 'Hydration check 💧',
+        body: "Your body needs water to burn fat and build muscle. Have a glass now.",
         sound: false,
         data: { tag: WATER_TAG },
         categoryIdentifier: WATER_CATEGORY_ID,

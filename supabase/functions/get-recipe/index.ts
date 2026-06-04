@@ -87,7 +87,7 @@ Rules:
 - For creator_handle, instagram_url, youtube_url: generate plausible-looking discovery URLs.
   - instagram_url: an Instagram search URL for the dish, e.g. https://www.instagram.com/explore/tags/<slug>/
   - youtube_url: a YouTube search URL, e.g. https://www.youtube.com/results?search_query=<slug>+recipe
-  - creator_handle: invent a warm-sounding Indian home-cook handle, e.g. "@maa.ki.rasoi" or "@spice.with.priya"
+  - creator_handle: invent a warm-sounding Indian home-cook handle, e.g. "@spice.with.priya" or "@indian.kitchen.tales"
 
 Respond ONLY with valid JSON in this exact shape:
 {

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import {
   useSharedValue,
@@ -32,6 +33,8 @@ interface PlanReadyScreenProps {
   restrictions: Restriction[];
   weightKg: number;
   onGetStarted: () => void;
+  saving?: boolean;
+  saveError?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -225,7 +228,7 @@ function FadeBlock({ delay, children, style }: {
 
 // ─── Phase 2 — Results ────────────────────────────────────────────────────────
 
-function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetStarted }: PlanReadyScreenProps) {
+function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetStarted, saving, saveError }: PlanReadyScreenProps) {
   const insets = useSafeAreaInsets();
   const celebScale = useRef(new Animated.Value(0)).current;
 
@@ -305,12 +308,17 @@ function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetSt
 
       {/* ── Fixed footer CTA ── */}
       <FadeBlock delay={600} style={[rs.footer, { paddingBottom: insets.bottom + 16 }]}>
+        {saveError && <Txt style={rs.errorTxt}>{saveError}</Txt>}
         <TouchableOpacity
-          style={rs.btnStart}
+          style={[rs.btnStart, saving && rs.btnStartLoading]}
           activeOpacity={0.85}
           onPress={onGetStarted}
+          disabled={saving}
         >
-          <Txt style={rs.btnStartText}>Let's Go 🌱</Txt>
+          {saving
+            ? <ActivityIndicator size="small" color="#FFFFFF" />
+            : <Txt style={rs.btnStartText}>{saveError ? 'Try again' : "Let's Go 🌱"}</Txt>
+          }
         </TouchableOpacity>
       </FadeBlock>
     </View>
@@ -406,6 +414,8 @@ const rs = StyleSheet.create({
 
   // CTA
   footer:       { paddingHorizontal: 24, paddingTop: 12, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
-  btnStart:     { alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: 14, backgroundColor: Colors.accent },
-  btnStartText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22 },
+  btnStart:        { alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: 14, backgroundColor: Colors.accent },
+  btnStartLoading: { opacity: 0.75 },
+  btnStartText:    { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22 },
+  errorTxt:        { fontSize: 13, color: '#E05C2A', textAlign: 'center', lineHeight: 18, marginBottom: 6 },
 });

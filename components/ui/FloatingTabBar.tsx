@@ -25,7 +25,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 12 }]}>
+    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 8 }]}>
       <View style={styles.container}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
