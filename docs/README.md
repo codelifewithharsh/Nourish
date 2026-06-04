@@ -1,4 +1,4 @@
-# PulseAI Documentation
+# Nourish Documentation
 
 Welcome. This is your map to understanding the codebase end-to-end.
 
@@ -8,11 +8,11 @@ These docs are written for someone who knows JavaScript/TypeScript well but is t
 
 If you're new, read them in order. Each builds on the previous.
 
-1. **[01-overview.md](./01-overview.md)** — What PulseAI is, the user journey, what every tab does. Start here.
+1. **[01-overview.md](./01-overview.md)** — What Nourish is, the user journey, what every tab does. Start here.
 2. **[02-architecture.md](./02-architecture.md)** — Folder layout, top-level patterns (file-based routing, no global state, direct DB calls, etc.) and the reasoning behind each.
 3. **[03-auth-and-routing.md](./03-auth-and-routing.md)** — How Expo Router works, the auth state machine, how Google OAuth is wired through Supabase Auth, what to set up in Google Cloud Console.
 4. **[04-supabase-and-database.md](./04-supabase-and-database.md)** — Supabase setup, Row Level Security, every table explained, migrations workflow, type generation.
-5. **[05-ai-edge-functions.md](./05-ai-edge-functions.md)** — How the four AI edge functions work: the shared `guard()` pattern, caching, refunds, OpenAI integration, deployment.
+5. **[05-ai-edge-functions.md](./05-ai-edge-functions.md)** — How the AI edge functions work: the shared `guard()` pattern, caching, refunds, OpenAI integration, deployment.
 6. **[06-credits-and-rate-limits.md](./06-credits-and-rate-limits.md)** — The end-to-end credits system: server enforcement, client UX (pill, modals, toasts, cost chips), and how to safely add a new AI action.
 7. **[07-build-deploy-env.md](./07-build-deploy-env.md)** — Environments, EAS Build profiles, what command to run when, secrets management.
 8. **[08-pending-work.md](./08-pending-work.md)** — Honest backlog of what's missing, broken, or future-facing. Prioritised.

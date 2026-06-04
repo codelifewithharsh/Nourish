@@ -1,6 +1,6 @@
 # 04 — Supabase & Database
 
-*Last updated: 2026-06-01.*
+*Last updated: 2026-06-05.*
 
 This doc covers everything about our Supabase setup: what's in the database, how Row Level Security works, how migrations are managed, and the workflow for schema changes.
 
@@ -79,6 +79,7 @@ Mirrors the user; created by a trigger when `auth.users` gets a new row.
 | `credits` | int | current balance (synced via ledger trigger) |
 | `last_daily_refill` | date | last day daily refill was granted |
 | `credits_intro_seen` | bool | one-time intro toast flag |
+| `meal_notification_times` | jsonb | `{ breakfast, lunch, dinner: { hour, minute } }` — defaults to 8:00/13:00/19:30 if null |
 
 ### `meal_plans` — one row per user
 The current 7-day plan. Rewritten wholesale by `generate-meal-plan`.

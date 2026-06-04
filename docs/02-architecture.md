@@ -1,6 +1,6 @@
 # 02 — Architecture
 
-*Last updated: 2026-06-01.*
+*Last updated: 2026-06-05.*
 
 This is the "what shape is the codebase, and why" doc. If you only read one architecture doc, read this one.
 
@@ -47,27 +47,29 @@ The client never talks to OpenAI directly. **Every AI call goes through a Supaba
 ## 2. Folder layout
 
 ```
-PulseAI/
+nourish/
 ├─ app/                          ← Expo Router file-based routes
-│  ├─ _layout.tsx                ← root provider stack + auth listener
-│  ├─ index.tsx                  ← branded splash → routes by session
+│  ├─ _layout.tsx                ← root providers + ErrorBoundary + auth listener
+│  ├─ index.tsx                  ← Reanimated splash → routes by session
 │  ├─ (auth)/                    ← unauthenticated routes
 │  │  ├─ _layout.tsx
 │  │  ├─ login.tsx
 │  │  └─ onboarding.tsx
 │  ├─ (tabs)/                    ← authenticated routes
 │  │  ├─ _layout.tsx             ← FloatingTabBar
-│  │  ├─ index.tsx               ← Home
-│  │  ├─ meals.tsx               ← 7-day plan
+│  │  ├─ index.tsx               ← Home (AI nudge, streak, water, meals)
+│  │  ├─ meals.tsx               ← 7-day plan + grocery list export
 │  │  ├─ log.tsx                 ← AI nutrition lookup
-│  │  └─ profile.tsx             ← "You" page
+│  │  └─ profile.tsx             ← "You" page (body, preferences, notification times)
 │  └─ recipe/[id].tsx            ← recipe detail (dynamic route)
 │
 ├─ components/                   ← cross-screen presentational components
-│  ├─ ui/                        ← design primitives (Txt, FloatingTabBar)
+│  ├─ ui/                        ← design primitives (Txt, FloatingTabBar, Toast)
 │  ├─ SwapMealModal/             ← unified AI swap sheet
-│  ├─ HomeDrawer/                ← left-side drawer from home
-│  └─ HowItWorksModal/
+│  ├─ HomeDrawer/                ← left-side drawer (swipe-to-close + deep links)
+│  ├─ HowItWorksModal/
+│  ├─ StreakShareModal/          ← streak milestone share sheet
+│  └─ ErrorBoundary.tsx          ← React error boundary + PostHog crash capture
 │
 ├─ features/                     ← screen-specific business logic
 │  ├─ home/useHomeData.ts        ← profile + plan + logs + water + streak
@@ -78,12 +80,18 @@ PulseAI/
 │
 ├─ lib/                          ← SDK clients + cross-cutting utilities
 │  ├─ supabase.ts                ← Supabase client (with SecureStore adapter)
-│  ├─ database.types.ts          ← generated from Postgres schema
+│  ├─ database.types.ts          ← generated from Postgres schema (npm run types:db)
 │  ├─ aiClient.ts                ← wrapper around supabase.functions.invoke for AI
+│  ├─ analytics.ts               ← PostHog event helpers
+│  ├─ events.ts                  ← DeviceEventEmitter constants (cross-screen events)
+│  ├─ toast.ts                   ← imperative toast helper
 │  ├─ haptics.ts                 ← expo-haptics wrapper
-│  └─ notifications.ts           ← expo-notifications wrapper
+│  └─ notifications.ts           ← expo-notifications wrapper (meal + water reminders)
 │
 ├─ constants/                    ← design tokens (colors, spacing, typography)
+│
+├─ assets/
+│  └─ app_logo/                  ← nourish_logo_white.png + nourish_logo_dark_green.png
 │
 ├─ supabase/
 │  ├─ functions/                 ← Deno edge functions
@@ -91,7 +99,8 @@ PulseAI/
 │  │  ├─ generate-meal-plan/
 │  │  ├─ get-recipe/
 │  │  ├─ lookup-nutrition/
-│  │  └─ swap-meal/
+│  │  ├─ swap-meal/
+│  │  └─ daily-nudge/            ← free AI nudge, cached per (user, day)
 │  └─ migrations/                ← versioned SQL migrations
 │
 └─ docs/                         ← these documents
@@ -164,6 +173,7 @@ The OpenAI API key never touches the client. Four Deno functions live in `supaba
 | `get-recipe` | Generates ingredients + steps for a meal name | 5 |
 | `swap-meal` | Mood-based meal alternative ("lighter", "hearty", "quick") | 3 |
 | `lookup-nutrition` | Free-text food → `{ name, calories, protein, carbs, fat, serving }` | 1 |
+| `daily-nudge` | Personalised home-screen nudge based on profile + today's logs | **0 (free)** |
 
 Every function uses a shared `guard()` helper that handles auth, rate limits, credit deduction, and usage logging in one place. See [doc 05](./05-ai-edge-functions.md).
 
@@ -224,6 +234,7 @@ Consequence: **deleting the app and reinstalling preserves all state.** The trut
 - ❌ **No CSS-in-JS library** — `StyleSheet.create()` is enough.
 - ❌ **No service worker / web** — mobile-first.
 - ❌ **No dark mode (yet)** — `userInterfaceStyle: 'light'` hardcoded.
+- ✅ **PostHog** — analytics events + crash reporting (ErrorBoundary + ErrorUtils global handler).
 
 If a future requirement makes one of these necessary, document the decision here.
 

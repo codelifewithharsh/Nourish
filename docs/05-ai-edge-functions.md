@@ -1,6 +1,6 @@
 # 05 — AI & Edge Functions
 
-*Last updated: 2026-06-01.*
+*Last updated: 2026-06-05.*
 
 This doc explains how the server side of every AI feature works: the Deno edge functions, the shared `guard()`, the OpenAI integration, and how to add a new AI action safely.
 
@@ -33,7 +33,7 @@ Client → useAI() → invokeAI() → supabase.functions.invoke('<name>')
 
 ---
 
-## 2. The four functions
+## 2. The five functions
 
 | Function | Action | Cost | Daily limit | Cache? |
 |---|---|---|---|---|
@@ -41,6 +41,9 @@ Client → useAI() → invokeAI() → supabase.functions.invoke('<name>')
 | `get-recipe` | `recipe` | 5 cr | 50/day | yes — `recipes` table keyed by slugified meal name |
 | `swap-meal` | `swap` | 3 cr | 20/day | no — creative per call |
 | `lookup-nutrition` | `nutrition` | 1 cr | 200/day | yes — `nutrition_cache` keyed by normalised query |
+| `daily-nudge` | — | **0 cr (free)** | — | yes — `ai_response_cache` keyed by `daily-nudge:{user_id}:{date}` |
+
+`daily-nudge` sits outside the credit system entirely — it doesn't use `guard()`. It reads the user's profile + today's logs, calls GPT-4o-mini for a ≤18-word personalised message, and caches the result in `ai_response_cache` for the rest of the UTC day. The client also caches it in AsyncStorage so subsequent app opens don't even hit the network.
 
 All cost/limit values live in **one place** on the server: [`supabase/functions/_shared/ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts) → `ACTIONS` map. The client mirrors them in `features/credits/costs.ts` for display only.
 
@@ -234,8 +237,8 @@ Edge functions live in `supabase/functions/<name>/index.ts` with optional `deno.
 # Deploy one
 npx supabase functions deploy generate-meal-plan
 
-# Or all four
-for fn in generate-meal-plan get-recipe lookup-nutrition swap-meal; do
+# Or all five
+for fn in generate-meal-plan get-recipe lookup-nutrition swap-meal daily-nudge; do
   npx supabase functions deploy $fn
 done
 
@@ -252,27 +255,25 @@ Schema changes (migrations) and function changes are independent. You can push a
 
 ## 8. Adding a new AI action
 
-Say you want to add `daily-nudge` for the home banner. Here's the recipe:
+Two patterns depending on whether it costs credits or is free:
 
-### 1. Server side
+### Paid action (uses the credit system)
 
-1. **Add to `_shared/ai-guard.ts`** → `ACTIONS` map: `nudge: { cost: 2, dailyLimit: 30 }`.
-2. **Create `supabase/functions/daily-nudge/index.ts`** with the guard pattern.
+1. **Add to `_shared/ai-guard.ts`** → `ACTIONS` map: `my_action: { cost: N, dailyLimit: M }`.
+2. **Create `supabase/functions/my-action/index.ts`** using the `guard()` pattern.
 3. (Optional) Add a cache table or use the existing ones if the query shape fits.
-4. `npx supabase functions deploy daily-nudge`.
+4. **Mirror cost in `features/credits/costs.ts`** — add to `COST` and `AI_COSTS`.
+5. **Call it** from your screen via `useAI()`.
+6. `npx supabase functions deploy my-action`.
+7. Verify: check `ai_usage_log`, test 402 at zero credits, test 429 past daily limit.
 
-### 2. Client side
+### Free action (no credits, like `daily-nudge`)
 
-5. **Mirror cost in `features/credits/costs.ts`** — add to `COST` and `AI_COSTS`.
-6. **Call it** from your screen: `await invoke<...>('daily-nudge', body)`.
-7. **Add a cost chip** wherever the trigger lives, using `COST.nudge`.
-8. (Optional) Update the `WhatUsesCreditsSheet` if you want it in the explainer.
-
-### 3. Verify
-
-- Run with a fresh user and check `ai_usage_log` for the expected `pending → success` rows.
-- Pretend you're at zero credits (`update profiles set credits = 0 where id = ...`) and confirm 402 modal.
-- Hammer it past the daily limit and confirm 429 toast.
+1. **Create `supabase/functions/my-action/index.ts`** — authenticate manually (no `guard()`), skip the credit system entirely.
+2. Use `ai_response_cache` for server-side caching keyed by `action:{user_id}:{date}`.
+3. Cache on the client with AsyncStorage for the same TTL.
+4. Always provide a static fallback so the UI never blocks on the network.
+5. `npx supabase functions deploy my-action`.
 
 ---
 
