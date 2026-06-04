@@ -14,7 +14,7 @@ import {
   Briefcase, Globe,
 } from 'lucide-react-native';
 import { SvgXml } from 'react-native-svg';
-import { PROFILE_UPDATED_EVENT } from '@/lib/events';
+import { PROFILE_UPDATED_EVENT, SCROLL_TO_SECTION_EVENT } from '@/lib/events';
 import { showToast } from '@/lib/toast';
 import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { Colors } from '@/constants/colors';
@@ -25,7 +25,7 @@ import { useAI } from '@/features/credits/CreditsContext';
 import { AICreditsPill } from '@/features/credits/AICreditsPill';
 import { COST } from '@/features/credits/costs';
 
-import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission } from '@/lib/notifications';
+import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
 
@@ -56,6 +56,7 @@ interface Profile {
   daily_protein: number | null;
   preferred_units: string | null;
   kitchen_ingredients: string | null;
+  meal_notification_times?: MealTimes | null;
 }
 
 // ─── Label maps ────────────────────────────────────────────────────────────
@@ -344,6 +345,13 @@ const cg = StyleSheet.create({
   chipTxtActive:{ color: '#FFFFFF' },
 });
 
+function fmt({ hour, minute }: { hour: number; minute: number }) {
+  const h12 = hour % 12 || 12;
+  const ampm = hour < 12 ? 'AM' : 'PM';
+  const mm = minute === 0 ? '' : `:${String(minute).padStart(2, '0')}`;
+  return `${h12}${mm} ${ampm}`;
+}
+
 // ─── Screen ────────────────────────────────────────────────────────────────
 
 type OpenRow =
@@ -362,10 +370,14 @@ export default function YouScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<OpenRow>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const prefsSectionY = useRef(0);
   const [kitchenText, setKitchenText] = useState('');
   const kitchenFocused = useRef(false);
   const [kitchenSaving, setKitchenSaving] = useState(false);
   const [kitchenJustSaved, setKitchenJustSaved] = useState(false);
+  const [mealTimes, setMealTimes] = useState<MealTimes>(DEFAULT_MEAL_TIMES);
+  const [mealTimesOpen, setMealTimesOpen] = useState(false);
   const [mealPlanDate, setMealPlanDate] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -418,6 +430,7 @@ export default function YouScreen() {
       const p = profileRes.data as Profile;
       setProfile(p);
       setKitchenText(p.kitchen_ingredients ?? '');
+      if (p.meal_notification_times) setMealTimes(p.meal_notification_times);
     }
     setMealPlanDate(planRes.data?.generated_at ?? null);
     computeStreak(uid);
@@ -446,6 +459,15 @@ export default function YouScreen() {
       analytics.screenViewed({ screen: 'profile' });
     }, [])
   );
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(SCROLL_TO_SECTION_EVENT, (section: string) => {
+      if (section === 'preferences') {
+        scrollRef.current?.scrollTo({ y: prefsSectionY.current, animated: true });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const onRefresh = useCallback(() => {
     if (!userId) return;
@@ -599,6 +621,7 @@ export default function YouScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={s.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -706,10 +729,10 @@ export default function YouScreen() {
                       : `${kitchenText.split(',').filter(Boolean).length} ingredient${kitchenText.split(',').filter(Boolean).length === 1 ? '' : 's'}`}
                 </Txt>
                 <TouchableOpacity
-                  style={[s.kitchenSaveBtn, (kitchenSaving || kitchenText === (profile?.kitchen_ingredients ?? '')) && s.kitchenSaveBtnDisabled]}
+                  style={[s.kitchenSaveBtn, (kitchenSaving || kitchenText.trim() === (profile?.kitchen_ingredients ?? '').trim()) && s.kitchenSaveBtnDisabled]}
                   onPress={handleKitchenSave}
                   activeOpacity={0.85}
-                  disabled={kitchenSaving || kitchenText === (profile?.kitchen_ingredients ?? '')}
+                  disabled={kitchenSaving || kitchenText.trim() === (profile?.kitchen_ingredients ?? '').trim()}
                 >
                   {kitchenSaving
                     ? <ActivityIndicator size="small" color="#FFFFFF" />
@@ -795,7 +818,10 @@ export default function YouScreen() {
           </View>
 
           {/* ── Food I love ── */}
-          <View style={s.section}>
+          <View
+            style={s.section}
+            onLayout={(e) => { prefsSectionY.current = e.nativeEvent.layout.y; }}
+          >
             <SectionTitle
               icon={<Heart size={14} color={Colors.accent} strokeWidth={2.5} />}
               title="Food I love"
@@ -883,31 +909,96 @@ export default function YouScreen() {
               title="Settings"
             />
             <View style={s.rowGroup}>
-              <View style={s.settingRow}>
-                <View style={s.settingInfo}>
-                  <Txt style={s.settingLabel}>Meal reminders</Txt>
-                  <Txt style={s.settingHint}>8 AM · 1 PM · 7:30 PM</Txt>
+              <View style={[s.settingRow, s.settingRowCol]}>
+                <View style={s.settingRowTop}>
+                  <View style={s.settingInfo}>
+                    <Txt style={s.settingLabel}>Meal reminders</Txt>
+                    <Txt style={s.settingHint}>
+                      {`${fmt(mealTimes.breakfast)} · ${fmt(mealTimes.lunch)} · ${fmt(mealTimes.dinner)}`}
+                    </Txt>
+                  </View>
+                  <View style={s.settingRowRight}>
+                    <TouchableOpacity
+                      onPress={() => { haptic.light(); setMealTimesOpen((v) => !v); }}
+                      activeOpacity={0.6}
+                      style={s.editTimesBtn}
+                    >
+                      <Txt style={s.editTimesTxt}>Edit times</Txt>
+                    </TouchableOpacity>
+                    <Switch
+                      value={notificationsEnabled}
+                      onValueChange={async (val) => {
+                        haptic.light();
+                        if (val) {
+                          const granted = await requestNotificationPermission();
+                          if (!granted) {
+                            Alert.alert('Permission needed', 'Enable notifications in Settings to get meal reminders.');
+                            return;
+                          }
+                          await scheduleMealReminders(mealTimes);
+                        } else {
+                          await cancelMealReminders();
+                        }
+                        analytics.notificationsToggled({ type: 'meals', enabled: val });
+                        setNotificationsEnabled(val);
+                      }}
+                      trackColor={{ false: Colors.border, true: Colors.accent }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
                 </View>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={async (val) => {
-                    haptic.light();
-                    if (val) {
-                      const granted = await requestNotificationPermission();
-                      if (!granted) {
-                        Alert.alert('Permission needed', 'Enable notifications in Settings to get meal reminders.');
-                        return;
-                      }
-                      await scheduleMealReminders();
-                    } else {
-                      await cancelMealReminders();
-                    }
-                    analytics.notificationsToggled({ type: 'meals', enabled: val });
-                    setNotificationsEnabled(val);
-                  }}
-                  trackColor={{ false: Colors.border, true: Colors.accent }}
-                  thumbColor="#FFFFFF"
-                />
+                {mealTimesOpen && (
+                  <View style={s.timePickers}>
+                    {(['breakfast', 'lunch', 'dinner'] as const).map((meal) => (
+                      <View key={meal} style={s.timePickerRow}>
+                        <Txt style={s.timePickerLabel}>
+                          {meal === 'breakfast' ? '🌅 Breakfast' : meal === 'lunch' ? '🍛 Lunch' : '🌙 Dinner'}
+                        </Txt>
+                        <View style={s.timeSteppers}>
+                          <TouchableOpacity
+                            style={s.timeStep}
+                            onPress={() => {
+                              haptic.light();
+                              const prev = mealTimes[meal];
+                              const h = (prev.hour - 1 + 24) % 24;
+                              const next = { ...mealTimes, [meal]: { ...prev, hour: h } };
+                              setMealTimes(next);
+                            }}
+                          >
+                            <Txt style={s.timeStepTxt}>−</Txt>
+                          </TouchableOpacity>
+                          <Txt style={s.timeValue}>{fmt(mealTimes[meal])}</Txt>
+                          <TouchableOpacity
+                            style={s.timeStep}
+                            onPress={() => {
+                              haptic.light();
+                              const prev = mealTimes[meal];
+                              const h = (prev.hour + 1) % 24;
+                              const next = { ...mealTimes, [meal]: { ...prev, hour: h } };
+                              setMealTimes(next);
+                            }}
+                          >
+                            <Txt style={s.timeStepTxt}>+</Txt>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      style={s.saveTimesBtn}
+                      activeOpacity={0.85}
+                      onPress={async () => {
+                        haptic.success();
+                        await saveField({ meal_notification_times: mealTimes } as any);
+                        if (notificationsEnabled) await scheduleMealReminders(mealTimes);
+                        setMealTimesOpen(false);
+                        showToast('Reminder times saved', 'success');
+                      }}
+                    >
+                      <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                      <Txt style={s.saveTimesTxt}>Save times</Txt>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               <View style={s.settingRow}>
@@ -1193,6 +1284,22 @@ const s = StyleSheet.create({
   redoInfo:     { flex: 1, gap: 2 },
   redoTxt:      { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 19 },
   redoHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 14 },
+
+  // Meal reminder time picker
+  settingRowCol:    { flexDirection: 'column', alignItems: 'stretch', gap: 0, paddingVertical: 12 },
+  settingRowTop:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  settingRowRight:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  editTimesBtn:     { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.accentLight },
+  editTimesTxt:     { fontSize: 11, fontWeight: '700', color: Colors.accent },
+  timePickers:      { marginTop: 12, gap: 10 },
+  timePickerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  timePickerLabel:  { fontSize: 13, fontWeight: '600', color: Colors.primary, flex: 1 },
+  timeSteppers:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timeStep:         { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
+  timeStepTxt:      { fontSize: 18, fontWeight: '600', color: Colors.accent, lineHeight: 22 },
+  timeValue:        { fontSize: 13, fontWeight: '700', color: Colors.primary, minWidth: 60, textAlign: 'center' },
+  saveTimesBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, backgroundColor: Colors.accent, borderRadius: 10, marginTop: 4 },
+  saveTimesTxt:     { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
 
   actionRow:   { flexDirection: 'row', gap: 10 },
   actionCard:  { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 14, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },

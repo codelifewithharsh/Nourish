@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   Modal, View, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Easing, Dimensions, Alert, Linking, Image,
-  PanResponder,
+  PanResponder, DeviceEventEmitter,
 } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
+import { SCROLL_TO_SECTION_EVENT } from '@/lib/events';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DRAWER_W = Math.min(SCREEN_W * 0.86, 360);
@@ -204,7 +205,14 @@ export function HomeDrawer({
                 icon={<Settings size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Preferences"
                 hint="Diet, cuisines, restrictions"
-                onPress={goToYou}
+                onPress={() => {
+                  haptic.light();
+                  close();
+                  setTimeout(() => {
+                    router.push('/(tabs)/profile');
+                    setTimeout(() => DeviceEventEmitter.emit(SCROLL_TO_SECTION_EVENT, 'preferences'), 400);
+                  }, 250);
+                }}
               />
             </View>
 

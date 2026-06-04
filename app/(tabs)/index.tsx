@@ -22,6 +22,7 @@ import { StreakShareModal } from '@/components/StreakShareModal';
 import { scheduleMealReminders, cancelMealReminders, scheduleWaterReminders, cancelWaterReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
+import { supabase } from '@/lib/supabase';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ function getGreeting() {
 }
 
 
-function getNudge(
+function getStaticNudge(
   meals: Meal[],
   loggedTypes: Set<string>,
   eatenCalories: number,
@@ -142,6 +143,7 @@ export default function HomeScreen() {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [notifsEnabled, setNotifsEnabled] = useState(false);
   const [streakShareOpen, setStreakShareOpen] = useState(false);
+  const [nudge, setNudge] = useState<{ emoji: string; message: string } | null>(null);
   const milestoneChecked = useRef(false);
 
   useEffect(() => {
@@ -150,6 +152,29 @@ export default function HomeScreen() {
       Notifications.getAllScheduledNotificationsAsync().then((n) => setNotifsEnabled(n.length > 0));
     });
   }, []);
+
+  // Fetch AI nudge once per day; fall back to static rules if unavailable
+  useEffect(() => {
+    if (!data) return;
+    const { meals, loggedMealTypes, eatenCalories, targetCalories, eatenProtein, targetProtein } = data;
+    const today = new Date().toISOString().slice(0, 10);
+    const cacheKey = `@nourish/nudge_${today}`;
+
+    AsyncStorage.getItem(cacheKey).then(async (cached) => {
+      if (cached) { setNudge(JSON.parse(cached)); return; }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('no session');
+        const res = await supabase.functions.invoke('daily-nudge');
+        if (res.error || !res.data?.emoji) throw new Error('bad response');
+        setNudge(res.data);
+        AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
+      } catch {
+        setNudge(getStaticNudge(meals, loggedMealTypes, eatenCalories, targetCalories, eatenProtein, targetProtein));
+      }
+    });
+  }, [!!data]);
 
   // Cross-tab sync: refetch home data when this tab regains focus
   useFocusEffect(
@@ -209,7 +234,6 @@ export default function HomeScreen() {
   const nextMeal   = meals.find((m) => !loggedMealTypes.has(m.type));
   const loggedCount = loggedMealTypes.size;
   const calRem     = targetCalories - eatenCalories;
-  const nudge      = getNudge(meals, loggedMealTypes, eatenCalories, targetCalories, eatenProtein, targetProtein);
   const initials   = getInitials(userName);
 
   return (
@@ -312,10 +336,12 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Section 2: Smart Nudge ── */}
-        <View style={s.nudgeCard}>
-          <Txt style={s.nudgeEmoji}>{nudge.emoji}</Txt>
-          <Txt style={s.nudgeTxt}>{nudge.message}</Txt>
-        </View>
+        {nudge && (
+          <View style={s.nudgeCard}>
+            <Txt style={s.nudgeEmoji}>{nudge.emoji}</Txt>
+            <Txt style={s.nudgeTxt}>{nudge.message}</Txt>
+          </View>
+        )}
 
         {/* ── Section 3: Next Meal ── */}
         {meals.length === 0 ? (
