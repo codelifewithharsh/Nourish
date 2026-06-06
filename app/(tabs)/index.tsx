@@ -9,7 +9,6 @@ import Reanimated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, GlassWater, Droplets } from 'lucide-react-native';
 import { useFocusEffect, router } from 'expo-router';
-import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { BorderRadius } from '@/constants/spacing';
@@ -766,7 +765,7 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
 
   return (
     <Modal visible={modalMounted || visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
-      <FullWindowOverlay>
+      <View style={StyleSheet.absoluteFill}>
         <Reanimated.View style={[StyleSheet.absoluteFill, ns.backdropColor, backdropStyle]} />
         <View style={ns.overlay}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismiss} />
@@ -867,7 +866,7 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
           </ScrollView>
           </Reanimated.View>
         </View>
-      </FullWindowOverlay>
+      </View>
     </Modal>
   );
 }

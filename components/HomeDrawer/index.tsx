@@ -4,7 +4,6 @@ import {
   Animated, Easing, Dimensions, Alert, Linking, Image,
   PanResponder, DeviceEventEmitter,
 } from 'react-native';
-import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -100,7 +99,7 @@ export function HomeDrawer({
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent onRequestClose={close} animationType="none">
-      <FullWindowOverlay>
+      <View style={StyleSheet.absoluteFill}>
       <View style={d.root}>
         {/* Dim backdrop */}
         <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={close}>
@@ -244,7 +243,7 @@ export function HomeDrawer({
           </ScrollView>
         </Animated.View>
       </View>
-      </FullWindowOverlay>
+      </View>
     </Modal>
   );
 }

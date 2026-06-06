@@ -1,6 +1,6 @@
 # 08 — Pending Work
 
-*Last updated: 2026-06-06.*
+*Last updated: 2026-06-07.*
 
 Honest backlog of what's missing, broken, or worth doing. Organised by priority. When you discover something new, add it at the right priority.
 
@@ -29,14 +29,14 @@ Honest backlog of what's missing, broken, or worth doing. Organised by priority.
 
 Full instructions in [doc 07 §5](./07-build-deploy-env.md).
 
-### 2. EAS Build configuration — scaffolding only
-[`eas.json`](../eas.json) has three profiles. **Still needed (requires your accounts):**
-1. Apple Developer Program signup ($99/year).
-2. Google Play Developer Console ($25 one-time).
-3. `eas login` + `eas build:configure`.
-4. `eas credentials` for iOS provisioning.
-5. Android service account key in repo root (gitignored).
-6. Fill in `eas.json` → `submit.production.ios` real values.
+### 2. EAS Build configuration
+**Done:** `eas init` run, `projectId` in `app.json`, preview builds working on Android.
+
+**Still needed:**
+1. Google Play Developer Console ($25 one-time) — to publish to Play Store.
+2. Apple Developer Program ($99/year) — skip for now, Android-first launch.
+3. Android service account key for `eas submit` (Play Store upload).
+4. Production EAS build profile wired to prod env vars.
 
 ---
 
@@ -93,14 +93,6 @@ Before EU launch: "export my data" + "delete my account" flow. Verify `ON DELETE
 
 ## Recommended next things to ship
 
-1. **Production Supabase + EAS Build** — needed before anyone installs outside Expo Go.
-2. **Push token storage + server-side triggers** — local scheduling alone won't cut it on Android.
-3. **Soft launch to ~10 friends** — triage based on what they complain about, that beats guessing.
-
----
-
-## Known small issues
-
-- Four migrations exist locally but may not be pushed to prod yet: `20260601000004_credit_pack_interest.sql`, `20260601000005_credits_intro_seen.sql`, `20260605000001_meal_notification_times.sql`, and `20260606000001_push_tokens.sql`. Run `npx supabase db push`.
-- `daily-nudge` edge function needs deploying to prod: `npx supabase functions deploy daily-nudge`.
-- Push notifications are code-complete but need 3 manual steps before tokens flow on real devices: (1) `eas init` → paste projectId into `app.json` → `extra.eas.projectId`; (2) upload APNs key to expo.dev → Credentials; (3) remove `./plugins/withoutPushEntitlement` from `app.json` plugins (only needed until Apple Developer Program is active).
+1. **Production Supabase setup** — create prod project, `supabase db push`, deploy 5 edge functions.
+2. **Google Play account** — $25, then production build + submit.
+3. **Soft launch to ~10 friends** — triage based on what they complain about, beats guessing.

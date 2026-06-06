@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
@@ -13,6 +14,8 @@ import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+SplashScreen.preventAutoHideAsync();
 
 // Capture unhandled JS errors and send to PostHog
 declare const ErrorUtils: {
@@ -55,6 +58,14 @@ async function handleLogWaterFromNotification() {
 
 export default function RootLayout() {
   useEffect(() => {
+    let splashHidden = false;
+    const hideSplash = () => {
+      if (!splashHidden) {
+        splashHidden = true;
+        SplashScreen.hideAsync();
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         analytics.logout();
@@ -64,7 +75,12 @@ export default function RootLayout() {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         registerPushToken(session.user.id);
       }
+      // Hide splash once we know the auth state (either logged in or not)
+      if (event === 'INITIAL_SESSION') hideSplash();
     });
+
+    // Fallback: hide splash after 3s in case INITIAL_SESSION never fires
+    const fallback = setTimeout(hideSplash, 3000);
 
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
       if (response.actionIdentifier === WATER_ACTION_ID) {
@@ -75,6 +91,7 @@ export default function RootLayout() {
     return () => {
       subscription.unsubscribe();
       responseListener.remove();
+      clearTimeout(fallback);
     };
   }, []);
 
