@@ -50,11 +50,13 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      }
+        "projectId": "4786fcd8-9c8e-4f2e-b8fc-90fa06d721fe"
+      },
+      "router": {}
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "codelifewithharsh"
   }
 }
