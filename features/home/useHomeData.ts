@@ -54,10 +54,8 @@ function todayStr() {
 
 // Which day of the 7-day plan to show (rotates by day of year)
 function planDayIndex() {
-  const start = new Date('2024-01-01').getTime();
-  const now = new Date().getTime();
-  const daysSince = Math.floor((now - start) / 86400000);
-  return daysSince % 7;
+  const jsDay = new Date().getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
 }
 
 export function useHomeData() {

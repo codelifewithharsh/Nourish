@@ -117,7 +117,7 @@ export default function OnboardingScreen() {
       age: data.age,
       weight_kg: weightKg,
       height_cm: heightCm,
-      activity_level: data.activityLevel ?? 'moderate',
+      activity_level: data.activityLevel ?? 'lightly_active',
       diet_type: data.dietType,
       cuisines: data.cuisines,
       restrictions: data.restrictions,
