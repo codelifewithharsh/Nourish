@@ -99,31 +99,39 @@ export default function LoginScreen() {
         options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
       });
 
-      if (error || !data?.url) return;
+      if (error || !data?.url) { setSigningIn(false); return; }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
-      if (result.type === 'success' && result.url) {
-        const url = new URL(result.url);
-        const accessToken = url.searchParams.get('access_token') ??
-          new URLSearchParams(url.hash.slice(1)).get('access_token');
-        const refreshToken = url.searchParams.get('refresh_token') ??
-          new URLSearchParams(url.hash.slice(1)).get('refresh_token');
+      if (result.type !== 'success' || !result.url) { setSigningIn(false); return; }
 
+      // Let Supabase parse the callback URL directly — handles both
+      // query-param and hash fragment token formats automatically.
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(
+        result.url
+      );
+
+      if (sessionError) {
+        // Fallback: manually extract tokens from hash fragment
+        const hash = result.url.includes('#') ? result.url.split('#')[1] : result.url.split('?')[1] ?? '';
+        const params = new URLSearchParams(hash);
+        const accessToken  = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            identifyUser(user.id, { email: user.email });
-            analytics.login();
-            const { data } = await supabase
-              .from('profiles')
-              .select('onboarding_completed')
-              .eq('id', user.id)
-              .maybeSingle();
-            router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
-          }
         }
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        identifyUser(user.id, { email: user.email });
+        analytics.login();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle();
+        router.replace(profile?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
       }
     } finally {
       setSigningIn(false);
