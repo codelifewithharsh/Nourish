@@ -93,7 +93,7 @@ export default function LoginScreen() {
     if (signingIn) return;
     setSigningIn(true);
     try {
-      const redirectUrl = AuthSession.makeRedirectUri();
+      const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'nourish' });
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
