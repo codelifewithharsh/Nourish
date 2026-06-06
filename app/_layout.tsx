@@ -9,7 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
 import { CreditsProvider } from '@/features/credits/CreditsContext';
-import { WATER_ACTION_ID } from '@/lib/notifications';
+import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -55,11 +55,14 @@ async function handleLogWaterFromNotification() {
 
 export default function RootLayout() {
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         analytics.logout();
         resetUser();
         setTimeout(() => router.replace('/(auth)/login'), 0);
+      }
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        registerPushToken(session.user.id);
       }
     });
 

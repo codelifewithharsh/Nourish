@@ -1,6 +1,6 @@
 # 08 — Pending Work
 
-*Last updated: 2026-06-05.*
+*Last updated: 2026-06-06.*
 
 Honest backlog of what's missing, broken, or worth doing. Organised by priority. When you discover something new, add it at the right priority.
 
@@ -39,14 +39,6 @@ Full instructions in [doc 07 §5](./07-build-deploy-env.md).
 6. Fill in `eas.json` → `submit.production.ios` real values.
 
 ---
-
-## 🟠 P1 — Important before public launch
-
-### 3. Push notification infrastructure
-`expo-notifications` is wired for local scheduling only. For reliable delivery (especially Android background):
-- Set up Expo Push Service or FCM directly.
-- Store push tokens in `profiles` table.
-- Send server-side triggers from edge functions where needed.
 
 ---
 
@@ -109,5 +101,6 @@ Before EU launch: "export my data" + "delete my account" flow. Verify `ON DELETE
 
 ## Known small issues
 
-- Three migrations exist locally but may not be pushed to prod yet: `20260601000004_credit_pack_interest.sql`, `20260601000005_credits_intro_seen.sql`, and `20260605000001_meal_notification_times.sql`. Run `npx supabase db push`.
+- Four migrations exist locally but may not be pushed to prod yet: `20260601000004_credit_pack_interest.sql`, `20260601000005_credits_intro_seen.sql`, `20260605000001_meal_notification_times.sql`, and `20260606000001_push_tokens.sql`. Run `npx supabase db push`.
 - `daily-nudge` edge function needs deploying to prod: `npx supabase functions deploy daily-nudge`.
+- Push notifications are code-complete but need 3 manual steps before tokens flow on real devices: (1) `eas init` → paste projectId into `app.json` → `extra.eas.projectId`; (2) upload APNs key to expo.dev → Credentials; (3) remove `./plugins/withoutPushEntitlement` from `app.json` plugins (only needed until Apple Developer Program is active).

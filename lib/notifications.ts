@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import { supabase } from '@/lib/supabase';
 
 export const WATER_ACTION_ID = 'LOG_WATER_GLASS';
 const WATER_CATEGORY_ID = 'water-reminder-category';
@@ -24,6 +26,42 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+// ── Push token registration ──────────────────────────────────────────────────
+//
+// Call this once after the user is authenticated. It requests permission,
+// fetches the Expo push token, and stores it in profiles.expo_push_token so
+// edge functions can send server-triggered notifications.
+//
+// PREREQUISITES (do these in your Expo / Apple / Google accounts):
+//   1. Run `eas init` and paste the projectId into app.json →
+//      expo.extra.eas.projectId  (required by getExpoPushTokenAsync)
+//   2. Upload your APNs key to expo.dev → Project → Credentials (iOS)
+//   3. Upload your FCM service account key (Android)
+//   4. Remove the `./plugins/withoutPushEntitlement` entry from app.json
+//      (that plugin strips the aps-environment entitlement which is needed
+//      for real push delivery on iOS — it was only there while you lacked
+//      an Apple Developer Program membership)
+//
+// Until step 1 is done this function returns silently without crashing.
+
+export async function registerPushToken(userId: string): Promise<void> {
+  if (!Device.isDevice) return;
+
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+  if (!projectId) return; // no-op until eas init is run
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return; // don't prompt here — let the user opt in first
+
+  try {
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (!token) return;
+    await supabase.from('profiles').update({ expo_push_token: token } as any).eq('id', userId);
+  } catch {
+    // Silently swallow — push token storage is best-effort, never block the app
+  }
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!Device.isDevice) return false;
