@@ -57,6 +57,12 @@
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "codelifewithharsh"
+    "owner": "codelifewithharsh",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4786fcd8-9c8e-4f2e-b8fc-90fa06d721fe"
+    }
   }
 }
