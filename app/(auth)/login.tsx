@@ -130,10 +130,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSkip = () => {
-    router.replace('/(auth)/onboarding');
-  };
-
   return (
     <View style={s.root}>
       {/* ── Dark green top section ── */}
@@ -196,14 +192,6 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={s.skipBtn}
-          activeOpacity={0.6}
-          onPress={handleSkip}
-          disabled={signingIn}
-        >
-          <Txt style={s.skipText}>Skip for now — plan won't be saved</Txt>
-        </TouchableOpacity>
       </Animated.View>
     </View>
   );
@@ -358,15 +346,5 @@ const s = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
-  },
-  skipBtn: {
-    alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 4,
-  },
-  skipText: {
-    fontSize: 13,
-    color: Colors.secondary,
-    lineHeight: 18,
   },
 });

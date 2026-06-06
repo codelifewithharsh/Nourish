@@ -96,9 +96,8 @@ export default function OnboardingScreen() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      // Guest mode — skip save, go straight to the app
       setSaving(false);
-      router.replace('/(tabs)');
+      router.replace('/(auth)/login');
       return;
     }
 
