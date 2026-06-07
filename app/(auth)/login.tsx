@@ -79,6 +79,23 @@ export default function LoginScreen() {
   const sheetY = useRef(new Animated.Value(120)).current;
   const sheetOpacity = useRef(new Animated.Value(0)).current;
 
+  // If the user somehow lands here while already authenticated (e.g. Android back
+  // button from tabs), redirect them away immediately so they are never stuck on
+  // the login screen with an active session.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return;
+      supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
+        });
+    });
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => {
       Animated.parallel([
@@ -126,12 +143,8 @@ export default function LoginScreen() {
       if (user) {
         identifyUser(user.id, { email: user.email });
         analytics.login();
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('onboarding_completed')
-          .eq('id', user.id)
-          .maybeSingle();
-        router.replace(profile?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
+        // Navigation is handled by the SIGNED_IN listener in _layout.tsx so the
+        // root Stack is properly reset (no auth screens left in back history).
       }
     } finally {
       setSigningIn(false);

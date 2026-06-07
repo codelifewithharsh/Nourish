@@ -1,9 +1,8 @@
 import '../global.css';
 import { useEffect } from 'react';
 import { DeviceEventEmitter } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
@@ -72,7 +71,19 @@ export default function RootLayout() {
         resetUser();
         setTimeout(() => router.replace('/(auth)/login'), 0);
       }
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+      if (event === 'SIGNED_IN' && session?.user) {
+        registerPushToken(session.user.id);
+        const uid = session.user.id;
+        supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', uid)
+          .maybeSingle()
+          .then(({ data }) => {
+            router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
+          });
+      }
+      if (event === 'INITIAL_SESSION' && session?.user) {
         registerPushToken(session.user.id);
       }
       // Hide splash once we know the auth state (either logged in or not)
