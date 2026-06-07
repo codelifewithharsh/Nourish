@@ -57,10 +57,9 @@ async function handleLogWaterFromNotification() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide the native splash immediately — index.tsx has the same dark green
-    // background so the handoff is invisible. Waiting for INITIAL_SESSION
-    // (SecureStore read) caused a 1-3s freeze on the static logo screen.
-    SplashScreen.hideAsync();
+    // Hold the native logo splash for 1.5s, then hand off to the animated
+    // JS splash in index.tsx (same dark green background, seamless transition).
+    const splashTimer = setTimeout(() => SplashScreen.hideAsync(), 1000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
@@ -94,6 +93,7 @@ export default function RootLayout() {
     return () => {
       subscription.unsubscribe();
       responseListener.remove();
+      clearTimeout(splashTimer);
     };
   }, []);
 

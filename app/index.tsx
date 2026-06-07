@@ -63,14 +63,28 @@ export default function Root() {
 
   useEffect(() => {
     const run = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Run auth checks and the minimum display timer concurrently so the
+      // animated splash always shows for at least 3.5s from mount
+      // (native splash hides at 1.5s → user sees ~2s of animated splash).
+      const sessionPromise = supabase.auth.getSession();
+      const minDisplay = new Promise<void>(r => setTimeout(r, 2000));
+
+      const { data: { session } } = await sessionPromise;
+
+      let profileData: { onboarding_completed: boolean } | null = null;
+      if (session?.user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        profileData = data;
+      }
+
+      await minDisplay; // Ensure animated splash plays fully before navigating
+
       if (!session?.user) { router.replace('/(auth)/login'); return; }
-      const { data } = await supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
+      router.replace(profileData?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
     };
     run().catch(() => router.replace('/(auth)/login'));
   }, []);
