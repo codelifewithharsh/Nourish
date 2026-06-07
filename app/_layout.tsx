@@ -57,13 +57,10 @@ async function handleLogWaterFromNotification() {
 
 export default function RootLayout() {
   useEffect(() => {
-    let splashHidden = false;
-    const hideSplash = () => {
-      if (!splashHidden) {
-        splashHidden = true;
-        SplashScreen.hideAsync();
-      }
-    };
+    // Hide the native splash immediately — index.tsx has the same dark green
+    // background so the handoff is invisible. Waiting for INITIAL_SESSION
+    // (SecureStore read) caused a 1-3s freeze on the static logo screen.
+    SplashScreen.hideAsync();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
@@ -86,12 +83,7 @@ export default function RootLayout() {
       if (event === 'INITIAL_SESSION' && session?.user) {
         registerPushToken(session.user.id);
       }
-      // Hide splash once we know the auth state (either logged in or not)
-      if (event === 'INITIAL_SESSION') hideSplash();
     });
-
-    // Fallback: hide splash after 3s in case INITIAL_SESSION never fires
-    const fallback = setTimeout(hideSplash, 3000);
 
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
       if (response.actionIdentifier === WATER_ACTION_ID) {
@@ -102,7 +94,6 @@ export default function RootLayout() {
     return () => {
       subscription.unsubscribe();
       responseListener.remove();
-      clearTimeout(fallback);
     };
   }, []);
 
