@@ -23,9 +23,9 @@ That runs the JS against your **local Expo dev environment**, hitting whatever S
 
 | Environment | When | Supabase project | OAuth client |
 |---|---|---|---|
-| **Local dev** | Daily coding | `pulseai-dev` | dev Google OAuth client |
-| **Preview** | TestFlight / internal Android | `pulseai-dev` (or staging) | dev Google OAuth client |
-| **Production** | App Store / Play Store | `pulseai-prod` | prod Google OAuth client |
+| **Local dev** | Daily coding | `nourish-dev` | dev Google OAuth client |
+| **Preview** | TestFlight / internal Android | `nourish-dev` (or staging) | dev Google OAuth client |
+| **Production** | App Store / Play Store | `nourish-prod` | prod Google OAuth client |
 
 Each one has its own Supabase URL, anon key, and Google OAuth credentials. The point of separation is that a bug in development can't reach production data.
 
@@ -110,7 +110,7 @@ eas submit -p android
 ## 5. Setting up a production Supabase project
 
 ```bash
-# 1. Create at app.supabase.com (call it pulseai-prod or similar)
+# 1. Create at app.supabase.com (call it nourish-prod or similar)
 
 # 2. Link
 npx supabase link --project-ref <prod-ref>

@@ -55,7 +55,7 @@ app/_layout.tsx mounts:
    - Stack navigator
    ↓
 app/index.tsx (the splash route) mounts:
-   - shows Lottie animation + "PulseAI" wordmark
+   - shows Lottie animation + "Nourish" wordmark
    - calls supabase.auth.getSession()
    - reads profiles.onboarding_completed if signed in
    - router.replace() to the right group
@@ -99,7 +99,7 @@ WebBrowser.openAuthSessionAsync(url, redirectUrl)
    ↓
 User picks a Google account
    ↓
-Google redirects back to `pulseai://` (our app scheme)
+Google redirects back to `nourish://` (our app scheme)
    ↓
 Browser closes, app foregrounds with the result URL
    ↓
@@ -147,7 +147,7 @@ This is what you (or whoever sets up a fresh Supabase project) does **once** per
 ### B. Configure the OAuth consent screen
 
 In Google Cloud Console → **APIs & Services → OAuth consent screen**:
-- App name: PulseAI
+- App name: Nourish
 - User support email: yours
 - Scopes: `email`, `profile`, `openid` (the defaults)
 - Test users: add your email until you publish the app
@@ -163,7 +163,7 @@ The redirect callback URL Supabase shows here should match what you added in Goo
 
 ### D. App URL scheme
 
-`app.json` declares `"scheme": "pulseai"`. This is what Google redirects back to (`pulseai://...`). If you change the scheme, update it in both places — but you don't need to, it's already set.
+`app.json` declares `"scheme": "nourish"`. This is what Google redirects back to (`nourish://...`). If you change the scheme, update it in both places — but you don't need to, it's already set.
 
 ---
 
