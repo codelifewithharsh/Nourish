@@ -1,10 +1,10 @@
 # 05 — AI & Edge Functions
 
-*Last updated: 2026-06-05.*
+*Last updated: 2026-06-08.*
 
 This doc explains how the server side of every AI feature works: the Deno edge functions, the shared `guard()`, the OpenAI integration, and how to add a new AI action safely.
 
-If you want the *client* side (how `useAI` works, the credits pill, the modals), read [doc 06](./06-credits-and-rate-limits.md).
+If you want the *client* side (how `useAI` works, the Pro badge and sheet, the rate-limit toast), read [doc 06](./06-pro-membership.md).
 
 ---
 
@@ -13,7 +13,7 @@ If you want the *client* side (how `useAI` works, the credits pill, the modals),
 We have four reasons to never call OpenAI from the client:
 
 1. **API key secrecy** — the OpenAI key cannot ship in the app bundle. Bundles can be unpacked.
-2. **Cost control** — rate limits and credit deductions must happen *before* we call OpenAI. Client checks are bypassable.
+2. **Cost control** — rate limits must be enforced *before* we call OpenAI. Client checks are bypassable.
 3. **Caching** — multiple users will ask the same things ("calories in 2 rotis"). Caching is cheap on the server.
 4. **Audit trail** — every call writes to `ai_usage_log` so we know who spent what.
 
@@ -35,17 +35,17 @@ Client → useAI() → invokeAI() → supabase.functions.invoke('<name>')
 
 ## 2. The five functions
 
-| Function | Action | Cost | Daily limit | Cache? |
-|---|---|---|---|---|
-| `generate-meal-plan` | `meal_plan` | 10 cr | 5/day | yes — `meal_plan_cache` keyed by profile shape |
-| `get-recipe` | `recipe` | 5 cr | 50/day | yes — `recipes` table keyed by slugified meal name |
-| `swap-meal` | `swap` | 3 cr | 20/day | no — creative per call |
-| `lookup-nutrition` | `nutrition` | 1 cr | 200/day | yes — `nutrition_cache` keyed by normalised query |
-| `daily-nudge` | — | **0 cr (free)** | — | yes — `ai_response_cache` keyed by `daily-nudge:{user_id}:{date}` |
+| Function | Action | Daily limit (default) | Cache? |
+|---|---|---|---|
+| `generate-meal-plan` | `meal_plan` | 3/day | yes — `meal_plan_cache` keyed by profile shape |
+| `get-recipe` | `recipe` | 8/day | yes — `recipes` table keyed by slugified meal name |
+| `swap-meal` | `swap` | 5/day | no — creative per call |
+| `lookup-nutrition` | `nutrition` | 20/day | yes — `nutrition_cache` keyed by normalised query |
+| `daily-nudge` | — | unrestricted | yes — `ai_response_cache` keyed by `daily-nudge:{user_id}:{date}` |
 
-`daily-nudge` sits outside the credit system entirely — it doesn't use `guard()`. It reads the user's profile + today's logs, calls GPT-4o-mini for a ≤18-word personalised message, and caches the result in `ai_response_cache` for the rest of the UTC day. The client also caches it in AsyncStorage so subsequent app opens don't even hit the network.
+`daily-nudge` sits outside the rate-limit system entirely — it doesn't use `guard()`. It reads the user's profile + today's logs, calls GPT-4o-mini for a ≤18-word personalised message, and caches the result in `ai_response_cache` for the rest of the UTC day. The client also caches it in AsyncStorage so subsequent app opens don't even hit the network.
 
-All cost/limit values live in **one place** on the server: [`supabase/functions/_shared/ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts) → `ACTIONS` map. The client mirrors them in `features/credits/costs.ts` for display only.
+**Limits are not hardcoded.** Each function's daily cap is read at call time from the `app_config` table (`limit_meal_plan`, `limit_recipe`, etc.) via the `get_config_int(key, default)` RPC. Tuning a limit is a single dashboard edit — no redeploy. The defaults in `ACTION_META` (inside [`ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts)) only kick in if the row is missing.
 
 ---
 
@@ -54,12 +54,10 @@ All cost/limit values live in **one place** on the server: [`supabase/functions/
 Every edge function starts with the same prerequisites:
 
 1. The user is authenticated.
-2. The user hasn't hit the daily rate limit for this action.
-3. The user has the daily refill applied (if they should).
-4. The user has enough credits (only checked when we're about to charge).
-5. The call gets logged regardless of outcome.
+2. The user hasn't hit the daily rate limit for this action (limit read live from `app_config`).
+3. The call gets logged regardless of outcome.
 
-Rather than copy-paste these five steps into four functions, they live in [`_shared/ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts).
+Rather than copy-paste into four functions, they live in [`_shared/ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts).
 
 ### Usage shape
 
@@ -77,25 +75,24 @@ Deno.serve(async (req) => {
     // 1. Cache check
     const cached = await g.supabase.from("recipes").select("*").eq("meal_key", key).maybeSingle();
     if (cached.data) {
-      await g.markCacheHit();         // logs status=cache_hit, charges 0
+      await g.markCacheHit();         // logs status=cache_hit, free
       return g.json({ recipe: cached.data });
     }
 
-    // 2. Charge before the OpenAI call
-    const { recordOutcome } = await g.charge();
+    // 2. Start a pending log row, call OpenAI, record outcome
+    const { recordOutcome } = g.start();
 
-    // 3. OpenAI call
     try {
       const result = await callOpenAI();
       await recordOutcome({ status: "success", tokens_in, tokens_out });
       return g.json({ recipe: result });
     } catch (err) {
-      await recordOutcome({ status: "openai_error", refund: true });
+      await recordOutcome({ status: "openai_error" });
       return g.json({ error: "Could not generate" }, 502);
     }
   } catch (err) {
     const r = asResponse(err);
-    if (r) return r;            // thrown GuardError → its response
+    if (r) return r;
     return g.json({ error: "Internal" }, 500);
   }
 });
@@ -104,27 +101,20 @@ Deno.serve(async (req) => {
 ### What `guard()` does, in order
 
 1. **Auth** — checks the `Authorization` header, calls `auth.getUser()`. Refuses unverified emails (Google OAuth users pass automatically).
-2. **Rate limit** — calls the `check_and_increment_rate_limit` RPC. Atomic. If over limit, returns 429 with `code: rate_limited` and logs a `rate_limited` row.
-3. **Daily refill** — calls `ensure_daily_refill` (idempotent per UTC day). Grants 5 credits if today's refill hasn't happened.
-4. **Returns** `{ ok: true, supabase, admin, markCacheHit, charge, json }`.
+2. **Read live limit** — calls `get_config_int(meta.configKey, meta.defaultLimit)`. The default acts as a safe fallback if the row is missing or malformed.
+3. **Rate limit** — calls `check_and_increment_rate_limit` with the live limit. Atomic in Postgres. If over limit, returns 429 with `code: rate_limited`, the action-specific friendly message, and logs a `rate_limited` row.
+4. **Returns** `{ ok: true, supabase, admin, markCacheHit, start, json }`.
 
-### `markCacheHit()` vs `charge()`
+### `markCacheHit()` vs `start()`
 
-- **`markCacheHit()`** is called when we serve a cached result. It writes a `cache_hit` row to `ai_usage_log` with `credits_charged: 0`. Free for the user, free for us.
-- **`charge()`** is called when we're about to spend tokens. It atomically deducts via the `deduct_credits` RPC, returns a `recordOutcome()` closer. If the user has no credits, it throws a `GuardError(402)`.
+- **`markCacheHit()`** is called when we serve a cached result. Writes a `cache_hit` row to `ai_usage_log`. Free for the user, free for us.
+- **`start()`** opens a billable call. Inserts a `pending` log row and returns a `recordOutcome()` closer. After the OpenAI call, `recordOutcome()` updates that row with token counts, latency, and the computed USD cost.
 
-### `recordOutcome()`
+There is no `charge()` and no refund any more — every call is allowed if the user is within their daily cap. Cost protection is purely the cap × per-call cost, which keeps the math bounded.
 
-Called after the OpenAI call. Updates the pending log row with token counts, computes USD cost via `costMicrosGpt4oMini()`, and — if `refund: true` is passed — calls `refund_credits` to undo the charge. Used when OpenAI fails.
+### Friendly 429 messages
 
-### Atomic, race-safe credit deduction
-
-The `deduct_credits` RPC is **`UPDATE … WHERE credits >= amount RETURNING balance`**. Postgres serialises row updates, so even if a user double-taps and fires two concurrent requests:
-
-- Request A succeeds, credits go from 50 → 40, returns 40.
-- Request B sees credits = 40 ≥ 10, succeeds, credits go 40 → 30, returns 30.
-
-We never end up at a negative balance, and we never overcharge.
+Each action has a human-voiced message in `ACTION_META[action].rateLimitMessage` — e.g. *"You've explored a lot of recipes today! More flavours await tomorrow."* The client surfaces this directly in the rate-limit toast; the user never sees the word "limit" or "quota."
 
 ---
 
@@ -178,7 +168,7 @@ Cache hit → free for the user, no OpenAI call.
 
 ### Recipe cache (`recipes` table)
 
-Keyed by slugified meal name (`paneer-bhurji`, `dal-tadka`). The first user to ask for a recipe pays 5 credits; everyone after gets it free.
+Keyed by slugified meal name (`paneer-bhurji`, `dal-tadka`). The first user to ask for a recipe triggers OpenAI; everyone after gets it from the cache.
 
 ### Nutrition cache (`nutrition_cache`)
 
@@ -200,7 +190,7 @@ Then we scale the macros by the count we extracted. (Today this scaling is rudim
 The client never imports `supabase.functions.invoke` directly for AI. It uses `useAI()`:
 
 ```tsx
-import { useAI } from '@/features/credits/CreditsContext';
+import { useAI } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 
 const invoke = useAI();
@@ -209,8 +199,8 @@ try {
   const { recipe } = await invoke<{ recipe: Recipe }>('get-recipe', { meal_name: name });
   setRecipe(recipe);
 } catch (err) {
-  if (err instanceof AIError && err.code === 'no_credits') {
-    // CreditsProvider already showed the 402 modal — silent on the screen.
+  if (err instanceof AIError && err.code === 'rate_limited') {
+    // ProProvider already showed the rate-limit toast — silent on the screen.
   } else if (err instanceof AIError && err.code === 'rate_limited') {
     // CreditsProvider already showed the 429 toast — silent on the screen.
   } else {
@@ -220,12 +210,10 @@ try {
 ```
 
 The wrapper:
-- Refreshes the credits balance after every successful call (best-effort).
-- Auto-displays the 402 modal on `no_credits`.
-- Auto-displays the 429 toast on `rate_limited`.
+- Auto-displays the 429 toast on `rate_limited` (action-specific message comes from the server).
 - Throws a typed `AIError` so callers can branch.
 
-See [doc 06](./06-credits-and-rate-limits.md) for the full client story.
+See [doc 06](./06-pro-membership.md) for the full client story.
 
 ---
 
@@ -255,21 +243,21 @@ Schema changes (migrations) and function changes are independent. You can push a
 
 ## 8. Adding a new AI action
 
-Two patterns depending on whether it costs credits or is free:
+Two patterns depending on whether it's rate-limited or fully free:
 
-### Paid action (uses the credit system)
+### Rate-limited action (the common case)
 
-1. **Add to `_shared/ai-guard.ts`** → `ACTIONS` map: `my_action: { cost: N, dailyLimit: M }`.
-2. **Create `supabase/functions/my-action/index.ts`** using the `guard()` pattern.
-3. (Optional) Add a cache table or use the existing ones if the query shape fits.
-4. **Mirror cost in `features/credits/costs.ts`** — add to `COST` and `AI_COSTS`.
-5. **Call it** from your screen via `useAI()`.
+1. **Add to `_shared/ai-guard.ts`** → `ACTION_META` map: `my_action: { configKey: 'limit_my_action', defaultLimit: N, rateLimitMessage: '...' }`.
+2. **Create `supabase/functions/my-action/index.ts`** using the `guard()` + `g.start()` pattern.
+3. **Seed `app_config`** with the limit key in a migration so it shows up in the dashboard.
+4. (Optional) Add a cache table or reuse an existing one if the query shape fits.
+5. **Call it** from your screen via `useAI()` from `@/features/pro`.
 6. `npx supabase functions deploy my-action`.
-7. Verify: check `ai_usage_log`, test 402 at zero credits, test 429 past daily limit.
+7. Verify: check `ai_usage_log`, test 429 past daily limit.
 
-### Free action (no credits, like `daily-nudge`)
+### Free action (no limits, like `daily-nudge`)
 
-1. **Create `supabase/functions/my-action/index.ts`** — authenticate manually (no `guard()`), skip the credit system entirely.
+1. **Create `supabase/functions/my-action/index.ts`** — authenticate manually (no `guard()`), skip rate limits entirely.
 2. Use `ai_response_cache` for server-side caching keyed by `action:{user_id}:{date}`.
 3. Cache on the client with AsyncStorage for the same TTL.
 4. Always provide a static fallback so the UI never blocks on the network.
@@ -290,7 +278,7 @@ If you need to debug a function:
 ## 10. Common pitfalls
 
 - **Forgetting `corsPreflight(req)`** — the Supabase SDK sends an OPTIONS request first. Without it, browsers and the SDK both fail with a CORS error.
-- **Calling `recordOutcome` *before* OpenAI** — race condition where a refund could happen before the charge. Always: `charge() → call OpenAI → recordOutcome`.
-- **Forgetting to mark cache hits** — silent cache hits skew our cost analytics. Always call `markCacheHit()`.
-- **Putting business logic in the client when it should be in the function** — anything that affects cost, rate limits, or charges must be server-side.
-- **Mismatched costs between server and client** — if you bump `cost` in `ACTIONS`, update `COST` in `features/credits/costs.ts` in the same commit.
+- **Calling `recordOutcome` *before* OpenAI** — the pending row is meant to be finalized *after* the model call returns (or throws). Always: `start() → call OpenAI → recordOutcome`.
+- **Forgetting to mark cache hits** — silent cache hits skew cost analytics. Always call `markCacheHit()`.
+- **Putting business logic in the client when it should be in the function** — anything that affects rate limits must be server-side.
+- **Bypassing `app_config`** — never hardcode a limit in an edge function. Always read from `get_config_int` so ops can tune from the dashboard.

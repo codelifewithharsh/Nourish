@@ -1,6 +1,6 @@
 # 04 — Supabase & Database
 
-*Last updated: 2026-06-05.*
+*Last updated: 2026-06-08.*
 
 This doc covers everything about our Supabase setup: what's in the database, how Row Level Security works, how migrations are managed, and the workflow for schema changes.
 
@@ -76,9 +76,10 @@ Mirrors the user; created by a trigger when `auth.users` gets a new row.
 | `preferred_units` | text | `metric` \| `imperial` |
 | `kitchen_ingredients` | text | comma-separated free text |
 | `onboarding_completed` | bool | the routing gate |
-| `credits` | int | current balance (synced via ledger trigger) |
-| `last_daily_refill` | date | last day daily refill was granted |
-| `credits_intro_seen` | bool | one-time intro toast flag |
+| `is_pro` | bool | Pro membership flag (true for every signup right now) |
+| `is_early_bird` | bool | Early Bird sub-flag — drives the "EARLY BIRD" chip on the Pro sheet |
+| `pro_since` | timestamptz | when the user became Pro (used in "Pro member since" tag) |
+| `credits`, `last_daily_refill`, `credits_intro_seen` | int / date / bool | **legacy** — old credit model; no longer read or written but columns still exist |
 | `meal_notification_times` | jsonb | `{ breakfast, lunch, dinner: { hour, minute } }` — defaults to 8:00/13:00/19:30 if null |
 
 ### `meal_plans` — one row per user
@@ -143,30 +144,32 @@ Used by the shared `check_and_increment_rate_limit` RPC.
 | `count` | int |
 
 ### `ai_usage_log` — append-only audit log
-Every AI call (cache hits, charges, refunds, errors, rate-limited attempts) writes a row here.
+Every AI call (cache hits, errors, rate-limited attempts, successes) writes a row here.
 
 | Column | Notes |
 |---|---|
-| `user_id`, `action`, `status` | `pending`, `success`, `cache_hit`, `no_credits`, `rate_limited`, `openai_error` |
-| `cache_hit`, `tokens_in`, `tokens_out`, `cost_micros`, `credits_charged`, `latency_ms` | for cost analytics |
+| `user_id`, `action`, `status` | `pending`, `success`, `cache_hit`, `rate_limited`, `openai_error` |
+| `cache_hit`, `tokens_in`, `tokens_out`, `cost_micros`, `latency_ms` | for cost analytics |
+| `credits_charged` | **legacy** — always 0 under the Pro model |
 | `meta` | jsonb, free-form |
 
 ### `meal_plan_cache` / `nutrition_cache` — shared caches
 Used by edge functions to avoid recomputing common requests. Keyed by a profile-shape bucket / normalised query string.
 
-### `credit_ledger` — append-only credit transactions
-Every credit movement (grant, deduct, refund, refill) writes a row. A trigger keeps `profiles.credits` in sync as the running balance.
+### `app_config` — live-tunable settings
+Single source of truth for values that operations may want to change without redeploying. Read by edge functions via `get_config_int(key, default)` and by the client via `useAppConfigText(key, default)`.
 
 | Column | Notes |
 |---|---|
-| `delta` | signed int |
-| `balance_after` | int |
-| `reason` | `welcome`, `daily_refill`, `ai_charge`, `refund`, etc. |
-| `action` | nullable, references the AI action when applicable |
-| `ref_id` | nullable, references the `ai_usage_log.id` for traceability |
+| `key` | text PK, e.g. `limit_meal_plan`, `pro_price_normal`, `login_tagline` |
+| `value` | text — all values stored as text; callers cast as needed |
+| `description` | text — for editor context in the Supabase dashboard |
+| `updated_at` | timestamptz |
 
-### `credit_pack_interest` — waitlist
-Captures users who toggled "Notify me when packs launch" in the 402 modal. One row per interested user.
+Seeded with daily limits (`limit_*`), pricing copy (`pro_price_*`), and marketing copy (`login_tagline`).
+
+### `credit_ledger`, `credit_pack_interest` — *legacy*
+From the old credits economy. The Pro membership model replaced credits; these tables are no longer written to but remain in the schema until we explicitly drop them.
 
 ---
 
@@ -202,11 +205,11 @@ We use `SECURITY DEFINER` RPCs for atomic operations the client can't safely do 
 | Function | Purpose |
 |---|---|
 | `check_and_increment_rate_limit(p_user_id, p_action, p_daily_limit)` | Atomic upsert; returns `false` if over limit |
-| `ensure_daily_refill(p_user_id, p_daily_grant)` | Idempotent per UTC day, grants if needed |
-| `deduct_credits(p_user_id, p_amount, p_action, p_ref_id)` | Atomic; returns new balance or -1 if insufficient |
-| `grant_credits(...)` / `refund_credits(...)` | Append to ledger, sync `profiles.credits` |
+| `get_config_int(p_key, p_default)` | Reads `app_config` text → int with safe fallback |
+| `get_config_text(p_key, p_default)` | Reads `app_config` text with safe fallback (anon-callable) |
+| `ensure_daily_refill(...)`, `deduct_credits(...)`, `grant_credits(...)`, `refund_credits(...)` | **legacy** — unused under the Pro model |
 
-These are called from **edge functions only** (not the client) because they bypass RLS via `SECURITY DEFINER`.
+Rate-limit + config functions are called from **edge functions only** (they bypass RLS via `SECURITY DEFINER`). `get_config_text` is also granted to `anon` for pre-auth screens (login, onboarding).
 
 ---
 
@@ -261,8 +264,7 @@ There's no `package.json` script for it yet — should be one (`npm run types:db
 
 You don't write SQL against `auth.users` directly. Instead:
 
-- A trigger fires on `auth.users` insert → creates a `profiles` row.
-- A second trigger grants 50 welcome credits via `grant_credits`.
+- A trigger fires on `auth.users` insert → creates a `profiles` row with `is_pro=true`, `is_early_bird=true`, `pro_since=now()`.
 
 This means **deleting a row from `auth.users` cascades** through your tables via FK constraints. Verify those are `ON DELETE CASCADE` before you ship a "delete my account" feature.
 

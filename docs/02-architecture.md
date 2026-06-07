@@ -1,6 +1,6 @@
 # 02 — Architecture
 
-*Last updated: 2026-06-05.*
+*Last updated: 2026-06-08.*
 
 This is the "what shape is the codebase, and why" doc. If you only read one architecture doc, read this one.
 
@@ -74,16 +74,19 @@ nourish/
 ├─ features/                     ← screen-specific business logic
 │  ├─ home/useHomeData.ts        ← profile + plan + logs + water + streak
 │  ├─ onboarding/                ← step screens + TDEE calc
+│  ├─ notifications/             ← useMealReminders (shared home + profile)
 │  ├─ nutrition/
 │  ├─ recipe/useRecipe.ts
-│  └─ credits/                   ← whole credits subsystem (context, pill, sheet, costs)
+│  └─ pro/                       ← Pro membership (context, badge, sheet, OGAvatar)
 │
 ├─ lib/                          ← SDK clients + cross-cutting utilities
 │  ├─ supabase.ts                ← Supabase client (with SecureStore adapter)
 │  ├─ database.types.ts          ← generated from Postgres schema (npm run types:db)
 │  ├─ aiClient.ts                ← wrapper around supabase.functions.invoke for AI
+│  ├─ appConfig.ts               ← useAppConfigText() — reads app_config rows
 │  ├─ analytics.ts               ← PostHog event helpers
 │  ├─ events.ts                  ← DeviceEventEmitter constants (cross-screen events)
+│  ├─ splashGate.ts              ← coordinates when the native splash hides
 │  ├─ toast.ts                   ← imperative toast helper
 │  ├─ haptics.ts                 ← expo-haptics wrapper
 │  └─ notifications.ts           ← expo-notifications wrapper (meal + water reminders)
@@ -150,7 +153,7 @@ This is the **"React Query lite" pattern done manually**. It works because:
 - `useFocusEffect` triggers `refresh()` on tab focus for cross-tab sync.
 - We're not at the scale where global state pays off yet.
 
-**Exception:** the credits subsystem *is* global (balance, modals, toasts shown anywhere). It lives in `features/credits/CreditsContext.tsx` and wraps the whole app via `<CreditsProvider>` in `app/_layout.tsx`. See [doc 06](./06-credits-and-rate-limits.md).
+**Exception:** the Pro membership context *is* global (Pro status, pricing, the 429 rate-limit toast). It lives in `features/pro/ProContext.tsx` and wraps the whole app via `<ProProvider>` in `app/_layout.tsx`. See [doc 06](./06-pro-membership.md).
 
 ### 3.4 Direct Supabase calls — no API layer in between
 
@@ -167,15 +170,15 @@ Security is enforced by **Postgres Row Level Security (RLS)** policies on every 
 
 The OpenAI API key never touches the client. Four Deno functions live in `supabase/functions/`:
 
-| Function | Purpose | Cost (credits) |
+| Function | Purpose | Daily limit (configurable) |
 |---|---|---|
-| `generate-meal-plan` | Reads profile from DB, prompts gpt-4o-mini, upserts 7-day plan | 10 |
-| `get-recipe` | Generates ingredients + steps for a meal name | 5 |
-| `swap-meal` | Mood-based meal alternative ("lighter", "hearty", "quick") | 3 |
-| `lookup-nutrition` | Free-text food → `{ name, calories, protein, carbs, fat, serving }` | 1 |
-| `daily-nudge` | Personalised home-screen nudge based on profile + today's logs | **0 (free)** |
+| `generate-meal-plan` | Reads profile from DB, prompts gpt-4o-mini, upserts 7-day plan | 3 |
+| `get-recipe` | Generates ingredients + steps for a meal name | 8 |
+| `swap-meal` | Mood-based meal alternative ("lighter", "hearty", "quick") | 5 |
+| `lookup-nutrition` | Free-text food → `{ name, calories, protein, carbs, fat, serving }` | 20 |
+| `daily-nudge` | Personalised home-screen nudge based on profile + today's logs | unrestricted (cached per user/day) |
 
-Every function uses a shared `guard()` helper that handles auth, rate limits, credit deduction, and usage logging in one place. See [doc 05](./05-ai-edge-functions.md).
+Every function uses a shared `guard()` helper that handles auth, per-user rate limiting (read live from `app_config`), and usage logging in one place. See [doc 05](./05-ai-edge-functions.md).
 
 ### 3.6 Modals and sheets over native navigation modals
 
@@ -271,7 +274,7 @@ These are not problems today. Add them when the pain is real, not before.
 - **No raw `<Text>`** — use `Txt` from `components/ui/`.
 - **No raw colors** — import from `constants/colors.ts`.
 - **One screen, one hook** — screen-specific data lives in `features/<screen>/use<X>.ts`.
-- **All AI calls go through `useAI()`** — never call `supabase.functions.invoke` directly for AI endpoints. See [doc 06](./06-credits-and-rate-limits.md).
+- **All AI calls go through `useAI()`** — never call `supabase.functions.invoke` directly for AI endpoints. See [doc 06](./06-pro-membership.md).
 - **All DB writes go through the Supabase client** — never via Edge Function unless the client cannot reasonably do it.
 
 ### Files
