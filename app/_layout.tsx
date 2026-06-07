@@ -5,7 +5,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
-import * as SplashScreen from 'expo-splash-screen';
+import { armSplashGate, releaseSplash } from '@/lib/splashGate';
 import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
 import { ProProvider } from '@/features/pro';
@@ -14,7 +14,11 @@ import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-SplashScreen.preventAutoHideAsync();
+// The native splash is held until splashGate releases it. This happens
+// either when the first content screen reports it has data, or when a 2s
+// safety cutoff fires — whichever comes first.
+import * as SplashScreen from 'expo-splash-screen';
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Capture unhandled JS errors and send to PostHog
 declare const ErrorUtils: {
@@ -57,14 +61,17 @@ async function handleLogWaterFromNotification() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hold the native logo splash for 1.5s, then hand off to the animated
-    // JS splash in index.tsx (same dark green background, seamless transition).
-    const splashTimer = setTimeout(() => SplashScreen.hideAsync(), 1000);
+    // Hold the splash until either content first-paints (via releaseSplash)
+    // or this safety cutoff fires.
+    armSplashGate(2000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         analytics.logout();
         resetUser();
+        // Login screen has nothing to fetch — drop the splash immediately
+        // so the user lands on a ready-to-tap screen.
+        releaseSplash();
         setTimeout(() => router.replace('/(auth)/login'), 0);
       }
       if (event === 'SIGNED_IN' && session?.user) {
@@ -79,8 +86,11 @@ export default function RootLayout() {
             router.replace(data?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
           });
       }
-      if (event === 'INITIAL_SESSION' && session?.user) {
-        registerPushToken(session.user.id);
+      if (event === 'INITIAL_SESSION') {
+        if (session?.user) registerPushToken(session.user.id);
+        // No session at app start → land on login. Same idea as SIGNED_OUT:
+        // login has no fetches, so drop the splash now.
+        if (!session?.user) releaseSplash();
       }
     });
 
@@ -93,7 +103,6 @@ export default function RootLayout() {
     return () => {
       subscription.unsubscribe();
       responseListener.remove();
-      clearTimeout(splashTimer);
     };
   }, []);
 

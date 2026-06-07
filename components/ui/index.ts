@@ -4,3 +4,4 @@ export { FloatingTabBar } from './FloatingTabBar';
 export { Tag } from './Tag';
 export { Txt } from './Typography';
 export { ToastContainer } from './Toast';
+export { BreathingLogo } from './BreathingLogo';

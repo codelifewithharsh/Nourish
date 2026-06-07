@@ -12,17 +12,19 @@ import { useFocusEffect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { BorderRadius } from '@/constants/spacing';
-import { Txt } from '@/components/ui';
+import { Txt, BreathingLogo } from '@/components/ui';
 import { useHomeData, Meal } from '@/features/home/useHomeData';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { StreakShareModal } from '@/components/StreakShareModal';
-import { scheduleMealReminders, cancelMealReminders, scheduleWaterReminders, cancelWaterReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
+import { scheduleWaterReminders, cancelWaterReminders, requestNotificationPermission, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { OGAvatar } from '@/features/pro';
+import { useMealReminders } from '@/features/notifications/useMealReminders';
+import { releaseSplash } from '@/lib/splashGate';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +143,7 @@ export default function HomeScreen() {
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
-  const [notifsEnabled, setNotifsEnabled] = useState(false);
+  const { mealTimes, enabled: notifsEnabled, setMealTime, setEnabled: setNotifsEnabled } = useMealReminders();
   const [streakShareOpen, setStreakShareOpen] = useState(false);
   const [nudge, setNudge] = useState<{ emoji: string; message: string } | null>(null);
   const milestoneChecked = useRef(false);
@@ -215,11 +217,17 @@ export default function HomeScreen() {
     return () => clearInterval(id);
   }, [loading, data?.meals.length, refresh]);
 
+  // Drop the native splash the moment home has data — keeps users from
+  // ever seeing a loading spinner on cold start.
+  useEffect(() => {
+    if (!loading && data) releaseSplash();
+  }, [loading, data]);
+
   if (loading || !data) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <View style={s.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.accent} />
+          <BreathingLogo size={96} />
         </View>
       </SafeAreaView>
     );
@@ -471,15 +479,9 @@ export default function HomeScreen() {
       <NotifSheet
         visible={notifSheetOpen}
         enabled={notifsEnabled}
-        onToggle={async (val) => {
-          if (val) {
-            const granted = await requestNotificationPermission();
-            if (granted) { await scheduleMealReminders(); setNotifsEnabled(true); }
-          } else {
-            await cancelMealReminders();
-            setNotifsEnabled(false);
-          }
-        }}
+        mealTimes={mealTimes}
+        onToggle={(val) => setNotifsEnabled(val)}
+        onMealTimeChange={setMealTime}
         onClose={() => setNotifSheetOpen(false)}
       />
     </SafeAreaView>
@@ -710,15 +712,16 @@ const BREAKFAST_OPTS = [{ label: '7 AM', hour: 7 }, { label: '8 AM', hour: 8 }, 
 const LUNCH_OPTS     = [{ label: '12 PM', hour: 12 }, { label: '1 PM', hour: 13 }, { label: '2 PM', hour: 14 }];
 const DINNER_OPTS    = [{ label: '6 PM', hour: 18 }, { label: '7 PM', hour: 19 }, { label: '8 PM', hour: 20 }, { label: '9 PM', hour: 21 }];
 
-function NotifSheet({ visible, enabled, onToggle, onClose }: {
+function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, onClose }: {
   visible: boolean;
   enabled: boolean;
-  onToggle: (val: boolean) => void;
+  mealTimes: MealTimes;
+  onToggle: (val: boolean) => void | Promise<void>;
+  onMealTimeChange: (meal: keyof MealTimes, hour: number) => void | Promise<void>;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const [waterInterval, setWaterInterval] = useState(0);
-  const [mealTimes, setMealTimes] = useState<MealTimes>(DEFAULT_MEAL_TIMES);
   const [modalMounted, setModalMounted] = useState(false);
 
   const translateY = useSharedValue(600);
@@ -760,10 +763,8 @@ function NotifSheet({ visible, enabled, onToggle, onClose }: {
   };
 
   const handleMealTime = async (meal: keyof MealTimes, hour: number) => {
-    const updated = { ...mealTimes, [meal]: { hour, minute: 0 } };
-    setMealTimes(updated);
     analytics.notificationTimeChanged({ meal, hour });
-    if (enabled) await scheduleMealReminders(updated);
+    await onMealTimeChange(meal, hour);
   };
 
   const fmtHour = (h: number) => h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;

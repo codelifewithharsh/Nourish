@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -15,6 +15,7 @@ import { PlanReadyScreen } from '@/features/onboarding/components/PlanReadyScree
 import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { supabase } from '@/lib/supabase';
 import { scheduleMealReminders } from '@/lib/notifications';
+import { releaseSplash } from '@/lib/splashGate';
 import { analytics } from '@/lib/analytics';
 import {
   OnboardingData,
@@ -32,6 +33,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SPRING_CONFIG = { damping: 22, stiffness: 200, mass: 0.8 };
 
 export default function OnboardingScreen() {
+  // Onboarding has no async fetch blocking first paint — drop the splash
+  // as soon as the screen mounts.
+  useEffect(() => { releaseSplash(); }, []);
+
   const [step, setStep] = useState(1);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
   const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');

@@ -638,7 +638,7 @@ export default function LogScreen() {
     setTargetCalories(profileRes.data?.daily_calories ?? 2200);
     // De-dupe by name, keeping the most recent occurrence (which is first
     // because we ordered by logged_at desc). This becomes our local cache —
-    // clicking a recent chip reuses these macros and avoids burning a credit.
+    // clicking a recent chip reuses these macros and avoids an AI call.
     const seen = new Set<string>();
     const unique: RecentMeal[] = [];
     for (const r of recentRes.data ?? []) {
@@ -749,7 +749,7 @@ export default function LogScreen() {
 
   // Recent chip with cached macros → skip AI entirely, jump straight to the
   // confirmation card. Quick-add chip (no cache) → just populate the input;
-  // user has to tap send to spend the credit.
+  // user has to tap send to fire the AI call.
   const handleChipSelect = useCallback((text: string, cached: RecentMeal | null) => {
     setQuery(text);
     if (cached) {

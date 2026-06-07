@@ -18,12 +18,13 @@ import { PROFILE_UPDATED_EVENT, SCROLL_TO_SECTION_EVENT } from '@/lib/events';
 import { showToast } from '@/lib/toast';
 import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { Colors } from '@/constants/colors';
-import { Txt } from '@/components/ui';
+import { Txt, BreathingLogo } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useAI, EarlyBirdBadge } from '@/features/pro';
 
 import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
+import { MEAL_TIMES_CHANGED_EVENT, MEAL_NOTIFS_TOGGLED_EVENT } from '@/lib/events';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
 
@@ -449,6 +450,32 @@ export default function YouScreen() {
     });
   }, []);
 
+  // Stay in sync with changes made from the home bell sheet: re-read the
+  // persisted meal times + live permission/scheduled state on each broadcast.
+  useEffect(() => {
+    const refreshFromOutside = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('meal_notification_times')
+          .eq('id', user.id)
+          .maybeSingle();
+        const row = data as { meal_notification_times?: MealTimes | null } | null;
+        if (row?.meal_notification_times) setMealTimes(row.meal_notification_times);
+      }
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') { setNotificationsEnabled(false); return; }
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      setNotificationsEnabled(
+        scheduled.some((n) => (n.content.data as { tag?: string } | null)?.tag === 'meal-reminder'),
+      );
+    };
+    const sub1 = DeviceEventEmitter.addListener(MEAL_TIMES_CHANGED_EVENT,  refreshFromOutside);
+    const sub2 = DeviceEventEmitter.addListener(MEAL_NOTIFS_TOGGLED_EVENT, refreshFromOutside);
+    return () => { sub1.remove(); sub2.remove(); };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       analytics.screenViewed({ screen: 'profile' });
@@ -606,7 +633,7 @@ export default function YouScreen() {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <View style={s.loadingCenter}>
-          <ActivityIndicator size="large" color={Colors.accent} />
+          <BreathingLogo size={96} />
         </View>
       </SafeAreaView>
     );
@@ -936,6 +963,7 @@ export default function YouScreen() {
                         }
                         analytics.notificationsToggled({ type: 'meals', enabled: val });
                         setNotificationsEnabled(val);
+                        DeviceEventEmitter.emit(MEAL_NOTIFS_TOGGLED_EVENT);
                       }}
                       trackColor={{ false: Colors.border, true: Colors.accent }}
                       thumbColor="#FFFFFF"
@@ -987,6 +1015,7 @@ export default function YouScreen() {
                         if (notificationsEnabled) await scheduleMealReminders(mealTimes);
                         setMealTimesOpen(false);
                         showToast('Reminder times saved', 'success');
+                        DeviceEventEmitter.emit(MEAL_TIMES_CHANGED_EVENT);
                       }}
                     >
                       <Check size={14} color="#FFFFFF" strokeWidth={3} />
