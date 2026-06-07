@@ -15,6 +15,7 @@ import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { SCROLL_TO_SECTION_EVENT } from '@/lib/events';
+import { OGAvatar } from '@/features/pro';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DRAWER_W = Math.min(SCREEN_W * 0.86, 360);
@@ -118,12 +119,14 @@ export function HomeDrawer({
 
             {/* ── Identity ── */}
             <View style={d.identity}>
-              <View style={d.avatar}>
-                {avatarUrl
-                  ? <Image source={{ uri: avatarUrl }} style={d.avatarImg} />
-                  : <Txt style={d.avatarTxt}>{initials}</Txt>
-                }
-              </View>
+              <OGAvatar size={52} radius={14}>
+                <View style={d.avatar}>
+                  {avatarUrl
+                    ? <Image source={{ uri: avatarUrl }} style={d.avatarImg} />
+                    : <Txt style={d.avatarTxt}>{initials}</Txt>
+                  }
+                </View>
+              </OGAvatar>
               <View style={d.identityInfo}>
                 <Txt style={d.name} numberOfLines={1}>{name}</Txt>
                 <Txt style={d.email} numberOfLines={1}>{email}</Txt>

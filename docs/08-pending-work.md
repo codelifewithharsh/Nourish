@@ -96,3 +96,24 @@ Before EU launch: "export my data" + "delete my account" flow. Verify `ON DELETE
 1. **Production Supabase setup** — create prod project, `supabase db push`, deploy 5 edge functions.
 2. **Google Play account** — $25, then production build + submit.
 3. **Soft launch to ~10 friends** — triage based on what they complain about, beats guessing.
+
+
+## TO be fixed now
+
+
+### 5.
+When user login and see splash screen, instead of directly opening homepage and showing a loader, show splash screen till the content is being loaded - so that user won't see that loader at all
+
+
+### 7. 
+Need to update what is being displayed on invite a friend - may be supabase configurable
+
+### 8.
+Rate Nourish - how to see that
+
+
+### 10.
+We need a section where users can direclty write about app (no need to send the mail), also what they need in this app (as features)- how can this app be made better for them
+
+### 11.
+prompts ??

@@ -18,9 +18,11 @@ import {
 } from 'react-native-reanimated';
 import Reanimated from 'react-native-reanimated';
 import LottieView from 'lottie-react-native';
+import { Crown, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
+import { useProPricing } from '@/features/pro';
 import { NutritionTargets, Goal, CuisinePreference, DietType, Restriction } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -229,7 +231,8 @@ function FadeBlock({ delay, children, style }: {
 // ─── Phase 2 — Results ────────────────────────────────────────────────────────
 
 function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetStarted, saving, saveError }: PlanReadyScreenProps) {
-  const insets = useSafeAreaInsets();
+  const insets  = useSafeAreaInsets();
+  const pricing = useProPricing();
   const celebScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -295,12 +298,28 @@ function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetSt
           </View>
         </FadeBlock>
 
-        {/* ── Day 1 preview card ── */}
-        <FadeBlock delay={500}>
-          <View style={rs.previewCard}>
-            <Txt style={rs.previewTop}>Tomorrow starts with...</Txt>
-            <Txt style={rs.previewMeal}>🍳 Masala Oats with Vegetables · 14g protein</Txt>
-            <Txt style={rs.previewMore}>+ 2 more meals planned for your day</Txt>
+        {/* ── Early Bird Pro reward card ── */}
+        <FadeBlock delay={650}>
+          <View style={rs.proCard}>
+            <View style={rs.proGlow} />
+            <View style={rs.proHeader}>
+              <View style={rs.proCrownWrap}>
+                <Crown size={14} color={Colors.accent} strokeWidth={2.6} fill={Colors.accent} fillOpacity={0.4} />
+              </View>
+              <View style={rs.proEyebrowWrap}>
+                <Sparkles size={9} color={Colors.accent} strokeWidth={2.6} fill={Colors.accent} fillOpacity={0.35} />
+                <Txt style={rs.proEyebrow}>EARLY BIRD PRO</Txt>
+              </View>
+            </View>
+            <Txt style={rs.proTitle}>You're in. Pro is on us.</Txt>
+            <Txt style={rs.proBody}>
+              Every AI feature — meal plans, recipes, swaps, food lookup — yours, free. No timer, no catch.
+            </Txt>
+            <View style={rs.proValueRow}>
+              <Txt style={rs.proValueNormal}>Normally {pricing.normalPrice}</Txt>
+              <View style={rs.proValueDot} />
+              <Txt style={rs.proValueFree}>{pricing.userPrice} for you</Txt>
+            </View>
           </View>
         </FadeBlock>
 
@@ -406,11 +425,94 @@ const rs = StyleSheet.create({
   cardTitle:   { fontSize: 15, fontWeight: '700', color: Colors.primary, lineHeight: 21 },
   cardBody:    { fontSize: 13, color: Colors.secondary, lineHeight: 19 },
 
-  // Day 1 preview card
-  previewCard: { backgroundColor: Colors.accentLight, borderRadius: 14, padding: 14, marginTop: 16, gap: 4 },
-  previewTop:  { fontSize: 12, color: Colors.secondary, lineHeight: 16 },
-  previewMeal: { fontSize: 14, fontWeight: '700', color: Colors.primary, lineHeight: 20 },
-  previewMore: { fontSize: 12, color: Colors.accent, lineHeight: 16 },
+  // Early Bird Pro reward card
+  proCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(45,106,79,0.18)',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  proGlow: {
+    position: 'absolute',
+    width: 220, height: 220, borderRadius: 110,
+    backgroundColor: Colors.accentLight,
+    top: -100, right: -80,
+    opacity: 0.7,
+  },
+  proHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  proCrownWrap: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: Colors.accentLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  proEyebrowWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.accent,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+  },
+  proEyebrow: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1.2,
+    lineHeight: 12,
+  },
+  proTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.primary,
+    lineHeight: 22,
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  proBody: {
+    fontSize: 13,
+    color: Colors.secondary,
+    lineHeight: 19,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  proValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proValueNormal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.secondary,
+    textDecorationLine: 'line-through',
+    lineHeight: 14,
+  },
+  proValueDot: {
+    width: 3, height: 3, borderRadius: 1.5,
+    backgroundColor: Colors.secondary,
+    opacity: 0.5,
+  },
+  proValueFree: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: Colors.accent,
+    letterSpacing: 0.2,
+    lineHeight: 15,
+  },
 
   // CTA
   footer:       { paddingHorizontal: 24, paddingTop: 12, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },

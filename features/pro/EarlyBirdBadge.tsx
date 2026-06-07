@@ -1,8 +1,8 @@
 // Early Bird Pro badge — appears on the profile screen header.
 //
-// Visual: small pill with a crown + "Early Bird Pro" label and a faint
-// shimmer accent so it feels like a real status, not a flat tag. Tapping
-// it opens EarlyBirdSheet which explains what Pro gives them.
+// Visual: small accent pill with a crown + "Early Bird Pro" label and a
+// faint shimmer so it feels alive without being busy. Tapping it opens
+// EarlyBirdSheet which explains what Pro gives them.
 
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -42,6 +42,8 @@ export function EarlyBirdBadge() {
         activeOpacity={0.82}
         onPress={() => { haptic.light(); setOpen(true); }}
         style={s.wrap}
+        accessibilityRole="button"
+        accessibilityLabel={isEarlyBird ? 'Early Bird Pro member. Tap to learn more.' : 'Pro member. Tap to learn more.'}
       >
         <View style={s.crownWrap}>
           <Crown size={11} color={Colors.accent} strokeWidth={2.6} fill={Colors.accent} fillOpacity={0.35} />

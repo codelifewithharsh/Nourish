@@ -22,6 +22,7 @@ import { scheduleMealReminders, cancelMealReminders, scheduleWaterReminders, can
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
+import { OGAvatar } from '@/features/pro';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -242,11 +243,15 @@ export default function HomeScreen() {
         {/* ── Header ── */}
         <View style={s.topBar}>
           <View style={s.topLeft}>
-            <TouchableOpacity style={s.avatar} activeOpacity={0.8} onPress={() => { analytics.profileDrawerOpened(); setProfileSheetOpen(true); }}>
-              {avatarUrl
-                ? <Image source={{ uri: avatarUrl }} style={s.avatarImg} />
-                : <Txt style={s.avatarTxt}>{initials}</Txt>
-              }
+            <TouchableOpacity activeOpacity={0.8} onPress={() => { analytics.profileDrawerOpened(); setProfileSheetOpen(true); }}>
+              <OGAvatar size={48} radius={14}>
+                <View style={s.avatar}>
+                  {avatarUrl
+                    ? <Image source={{ uri: avatarUrl }} style={s.avatarImg} />
+                    : <Txt style={s.avatarTxt}>{initials}</Txt>
+                  }
+                </View>
+              </OGAvatar>
             </TouchableOpacity>
             <View>
               <Txt style={s.greeting}>{getGreeting()}, {userName.split(' ')[0]} {getTimeEmoji()}</Txt>

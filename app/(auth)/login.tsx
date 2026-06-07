@@ -12,10 +12,12 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
+import { Crown } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { identifyUser, analytics } from '@/lib/analytics';
+import { useAppConfigText } from '@/lib/appConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -76,6 +78,7 @@ function FadeUp({
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const [signingIn, setSigningIn] = useState(false);
+  const tagline = useAppConfigText('login_tagline');
   const sheetY = useRef(new Animated.Value(120)).current;
   const sheetOpacity = useRef(new Animated.Value(0)).current;
 
@@ -192,10 +195,20 @@ export default function LoginScreen() {
           { opacity: sheetOpacity, transform: [{ translateY: sheetY }] },
         ]}
       >
-        <Txt style={s.trustLine}>
-          <Txt style={s.trustBold}>12,400+</Txt> people hit their goals last month
-        </Txt>
-        <Txt style={s.tagline}>No guesswork. No generic plans. Just yours.</Txt>
+        {tagline ? <Txt style={s.tagline}>{tagline}</Txt> : null}
+
+        {/* ── Early Bird ribbon ── */}
+        <View style={s.ribbon}>
+          <View style={s.ribbonCrownWrap}>
+            <Crown size={12} color={Colors.accent} strokeWidth={2.6} fill={Colors.accent} fillOpacity={0.35} />
+          </View>
+          <View style={s.ribbonText}>
+            <Txt style={s.ribbonTitle}>
+              <Txt style={s.ribbonTitleBold}>Early Bird Pro</Txt> · Free for you
+            </Txt>
+            <Txt style={s.ribbonHint}>Sign up now — every AI feature, on us.</Txt>
+          </View>
+        </View>
 
         <TouchableOpacity
           style={[s.btnGoogle, signingIn && s.btnDisabled]}
@@ -329,17 +342,6 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 12,
   },
-  trustLine: {
-    fontSize: 13,
-    color: Colors.secondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  trustBold: {
-    fontWeight: '700',
-    color: Colors.primary,
-  },
   tagline: {
     fontSize: 13,
     color: Colors.secondary,
@@ -367,5 +369,43 @@ const s = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
+  },
+
+  // ── Early Bird ribbon (above CTA) ──
+  ribbon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.accentLight,
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(45,106,79,0.18)',
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  ribbonCrownWrap: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ribbonText: { flex: 1, gap: 1 },
+  ribbonTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+    lineHeight: 16,
+  },
+  ribbonTitleBold: {
+    fontWeight: '800',
+    color: Colors.accent,
+    letterSpacing: 0.1,
+  },
+  ribbonHint: {
+    fontSize: 11,
+    color: Colors.secondary,
+    lineHeight: 14,
+    fontWeight: '500',
   },
 });

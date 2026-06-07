@@ -5,9 +5,9 @@
 // for free (because they are), and to soft-anchor the price for when paid
 // plans roll out later.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
-  Modal, View, StyleSheet, TouchableOpacity, Animated, Easing, Pressable, ScrollView,
+  Modal, View, StyleSheet, TouchableOpacity, Animated, Easing, Pressable, ScrollView, PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Sparkles, Check, Crown, Calendar, Heart } from 'lucide-react-native';
@@ -66,20 +66,55 @@ export function EarlyBirdSheet({
   }, [visible, opacity, sheetY]);
 
   const close = () => { haptic.light(); onClose(); };
+
+  // Smooth animated dismiss — slide sheet down, fade backdrop, then close.
+  const animateDismiss = () => {
+    Animated.parallel([
+      Animated.timing(sheetY,  { toValue: 600, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0,   duration: 200, useNativeDriver: true }),
+    ]).start(() => close());
+  };
+
+  // Drag-to-dismiss. Attached to a slim "drag zone" at the top of the sheet
+  // (handle + hero area). Body remains a scrollable ScrollView so the perks
+  // list still works. Threshold: 100px drop or >0.5 px/ms velocity dismisses;
+  // anything less springs back.
+  const dragResponder = useMemo(
+    () => PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) sheetY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 100 || g.vy > 0.5) {
+          animateDismiss();
+        } else {
+          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 120, friction: 9 }).start();
+        }
+      },
+    }),
+    [],
+  );
+
   const since = formatProSince(proSince);
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={close} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={animateDismiss} statusBarTranslucent>
       <Animated.View style={[s.backdrop, { opacity }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={animateDismiss} />
         <Animated.View
           style={[s.sheet, { paddingBottom: insets.bottom + 20, transform: [{ translateY: sheetY }] }]}
         >
-          <View style={s.handle} />
+          {/* Drag zone — handle + hero respond to swipe-down. The ScrollView
+              below this still scrolls normally. */}
+          <View {...dragResponder.panHandlers}>
+            <View style={s.handle} />
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-            {/* Hero crown */}
-            <View style={s.heroWrap}>
+            {/* Hero crown — also part of the drag zone */}
+            <View style={s.heroWrap} {...dragResponder.panHandlers}>
               <View style={s.crownGlow} />
               <View style={s.crownCircle}>
                 <Crown size={28} color={Colors.accent} strokeWidth={2.2} fill={Colors.accent} fillOpacity={0.25} />
@@ -140,11 +175,11 @@ export function EarlyBirdSheet({
           </ScrollView>
 
           {/* Header close — overlaid */}
-          <TouchableOpacity style={s.closeBtn} onPress={close} hitSlop={10} activeOpacity={0.7}>
+          <TouchableOpacity style={s.closeBtn} onPress={animateDismiss} hitSlop={10} activeOpacity={0.7}>
             <X size={16} color={Colors.secondary} strokeWidth={2.4} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.cta} onPress={close} activeOpacity={0.85}>
+          <TouchableOpacity style={s.cta} onPress={animateDismiss} activeOpacity={0.85}>
             <Txt style={s.ctaTxt}>Got it</Txt>
           </TouchableOpacity>
         </Animated.View>
