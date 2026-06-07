@@ -1,16 +1,15 @@
 // Thin wrapper around supabase.functions.invoke() that:
 //   1. Surfaces our edge-fn error codes as typed exceptions
-//   2. Bubbles 429 (rate limit) and 402 (no credits) to the credits UI
+//   2. Bubbles 429 (rate limit) to the Pro UI for a friendly toast
 //
-// Call sites should prefer `useAI()` from features/credits/CreditsContext,
-// which calls this and routes errors to the global handler. Direct callers
-// can still use `invokeAI` if they want to handle errors locally.
+// Call sites should prefer `useAI()` from features/pro/ProContext, which
+// calls this and routes 429s to the global toast. Direct callers can use
+// `invokeAI` if they want to handle errors locally.
 
 import { supabase } from '@/lib/supabase';
 
 export type AIErrorCode =
   | 'rate_limited'
-  | 'no_credits'
   | 'openai_error'
   | 'unauthorized'
   | 'unknown';
@@ -57,7 +56,6 @@ function codeFromStatus(status: number, body: Record<string, unknown> | null): A
   const explicit = body?.code as AIErrorCode | undefined;
   if (explicit) return explicit;
   if (status === 401 || status === 403) return 'unauthorized';
-  if (status === 402) return 'no_credits';
   if (status === 429) return 'rate_limited';
   if (status === 502) return 'openai_error';
   return 'unknown';

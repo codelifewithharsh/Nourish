@@ -4,7 +4,6 @@ import Reanimated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withTiming, runOnJS,
 } from 'react-native-reanimated';
-import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X, ChefHat, Sparkles, Calendar, RefreshCw, Heart,
@@ -76,8 +75,8 @@ export function HowItWorksModal({ visible, onClose }: Props) {
   }, [visible]);
 
   return (
-    <Modal visible={modalMounted || visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
-      <FullWindowOverlay>
+    <Modal visible={modalMounted || visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent hardwareAccelerated>
+      <View style={StyleSheet.absoluteFill}>
         <Reanimated.View style={[StyleSheet.absoluteFill, s.backdropColor, backdropStyle]} />
         <View style={s.overlay}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismiss} />
@@ -137,7 +136,7 @@ export function HowItWorksModal({ visible, onClose }: Props) {
             </ScrollView>
           </Reanimated.View>
         </View>
-      </FullWindowOverlay>
+      </View>
     </Modal>
   );
 }

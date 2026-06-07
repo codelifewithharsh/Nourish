@@ -14,8 +14,7 @@ import { Sparkles, ArrowUp, X, Check, Lightbulb } from 'lucide-react-native';
 import { haptic } from '@/lib/haptics';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
-import { useAI } from '@/features/credits/CreditsContext';
-import { COST } from '@/features/credits/costs';
+import { useAI } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -97,10 +96,8 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
   const invoke = useAI();
 
   const aiErrorMsg = (err: unknown, fallback: string) =>
-    err instanceof AIError
-      ? (err.code === 'no_credits'   ? "You're out of credits — comes back tomorrow."
-      :  err.code === 'rate_limited' ? 'Daily limit reached. Try again tomorrow.'
-      :  fallback)
+    err instanceof AIError && err.code === 'rate_limited'
+      ? err.message
       : fallback;
 
   // Reanimated sheet + backdrop
@@ -259,7 +256,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
                           <Sparkles size={14} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} fillOpacity={0.2} />
                         </Animated.View>
                         <Txt style={s.aiLabel}>AI Nutritionist</Txt>
-                        <View style={s.costChip}><Txt style={s.costChipTxt}>{COST.nutrition} cr</Txt></View>
+                        <View style={s.costChip}><Txt style={s.costChipTxt}>PRO</Txt></View>
                       </View>
 
                       <TextInput
@@ -296,7 +293,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
                     {/* ── Divider ── */}
                     <View style={s.divider}>
                       <View style={s.dividerLine} />
-                      <Txt style={s.dividerTxt}>or pick a vibe · {COST.swap} cr</Txt>
+                      <Txt style={s.dividerTxt}>or pick a vibe</Txt>
                       <View style={s.dividerLine} />
                     </View>
 
@@ -335,9 +332,6 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
                           <>
                             <Sparkles size={14} color="#FFFFFF" strokeWidth={2.5} />
                             <Txt style={s.swapCtaTxt}>Get {MOODS.find((m) => m.key === selectedMood)?.label.toLowerCase()} swap</Txt>
-                            <View style={s.swapCostChip}>
-                              <Txt style={s.swapCostTxt}>{COST.swap} cr</Txt>
-                            </View>
                           </>
                         )}
                       </TouchableOpacity>

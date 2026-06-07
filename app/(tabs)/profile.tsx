@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, RefreshControl,
-  KeyboardAvoidingView, Platform, Switch, Animated, Easing, LayoutAnimation, UIManager, Image, Linking,
+  KeyboardAvoidingView, Platform, Switch, Animated, Easing, LayoutAnimation, Image, Linking,
   DeviceEventEmitter, Share,
 } from 'react-native';
 import * as StoreReview from 'expo-store-review';
@@ -21,17 +21,12 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { useAI } from '@/features/credits/CreditsContext';
-import { AICreditsPill } from '@/features/credits/AICreditsPill';
-import { COST } from '@/features/credits/costs';
+import { useAI, EarlyBirdBadge } from '@/features/pro';
 
 import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { analytics } from '@/lib/analytics';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -550,7 +545,7 @@ export default function YouScreen() {
       await invoke('generate-meal-plan');
       await fetchProfile(userId);
     } catch (err) {
-      // CreditsProvider surfaces 402/429; other errors fail silently
+      // ProProvider surfaces 429 rate-limit toast; other errors fail silently
     } finally {
       setRegenerating(false);
     }
@@ -641,7 +636,7 @@ export default function YouScreen() {
                 <Txt style={s.heroEmail} numberOfLines={1}>{profile?.email}</Txt>
               </View>
             </View>
-            <AICreditsPill />
+            <EarlyBirdBadge />
           </View>
 
           {/* ── Streak hero ── */}
@@ -892,7 +887,7 @@ export default function YouScreen() {
                   <Txt style={s.regenCardTxt}>Regenerate my 7-day plan</Txt>
                   <View style={s.regenCostChip}>
                     <Sparkles size={9} color="#FFFFFF" strokeWidth={2.5} />
-                    <Txt style={s.regenCostTxt}>{COST.meal_plan}</Txt>
+                    <Txt style={s.regenCostTxt}>PRO</Txt>
                   </View>
                 </>
               )}

@@ -151,8 +151,8 @@ Deno.serve(async (req) => {
       return json({ plan, cached: true });
     }
 
-    // 2) Miss → reserve credits, then call OpenAI.
-    const { recordOutcome } = await g.charge();
+    // 2) Miss → log a pending row, then call OpenAI.
+    const { recordOutcome } = g.start();
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     let plan: unknown = FALLBACK_PLAN;
@@ -185,10 +185,9 @@ Deno.serve(async (req) => {
       } catch (err) {
         await recordOutcome({
           status: "openai_error",
-          refund: true,
           meta:   { error: String(err) },
         });
-        return json({ error: "Could not generate plan, credits refunded" }, 502);
+        return json({ error: "Could not generate plan, please try again" }, 502);
       }
     }
 

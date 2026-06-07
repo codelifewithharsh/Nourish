@@ -52,8 +52,8 @@ export default function RecipeScreen() {
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
 
-  // When credits/rate-limit error: hook leaves recipe=null, error=null.
-  // CreditsProvider already showed the modal — just go back silently.
+  // When rate-limit error: hook leaves recipe=null, error=null.
+  // ProProvider already showed the toast — just go back silently.
   useEffect(() => {
     if (!loading && !recipe && !error) {
       router.back();

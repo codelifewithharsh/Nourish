@@ -1,26 +1,25 @@
 // Shared guard for all AI edge functions.
 //
-// Every endpoint follows the same shape:
+// Pro membership model:
+// - Every signup is Pro by default. No credit math, no per-call charging.
+// - The only spend protection is a silent per-user per-day cap whose value
+//   lives in the `app_config` table (editable from the Supabase dashboard).
+// - Logging is unchanged: every call writes to `ai_usage_log` with status,
+//   tokens, cost in micro-cents, latency. That's what powers monitoring.
+//
+// Endpoint shape:
 //   const g = await guard(req, "meal_plan");
 //   if (!g.ok) return g.response;
-//   // ... do work, optionally g.markCacheHit() to skip the charge
-//   const { recordOutcome } = await g.charge();      // deduct + start usage log
+//   // ... do work, optionally g.markCacheHit() to log a free cache hit
+//   const { recordOutcome } = g.start();         // logs a pending row
 //   try {
-//     const result = await callOpenAI(...);
+//     const r = await callOpenAI(...);
 //     await recordOutcome({ status: "success", tokens_in, tokens_out });
-//     return g.json({ ...result });
+//     return g.json({ ... });
 //   } catch (err) {
-//     await recordOutcome({ status: "openai_error", refund: true });
+//     await recordOutcome({ status: "openai_error" });
 //     return g.json({ error: "Could not complete" }, 502);
 //   }
-//
-// Why this shape:
-// - guard() is sync prereq (auth → rate → refill → balance check). If any
-//   fail, the OpenAI call never happens — the wallet is safe.
-// - charge() reserves credits BEFORE the external call and returns a closer
-//   that finalizes the row. Refunds are atomic.
-// - Cache hits route through markCacheHit() which logs status='cache_hit'
-//   and charges zero credits.
 
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
@@ -30,16 +29,33 @@ export type AiAction =
   | "swap"
   | "nutrition";
 
-export interface ActionConfig {
-  cost:         number; // credits to deduct on cache miss
-  dailyLimit:   number; // per-user per-UTC-day cap
+interface ActionMeta {
+  configKey:        string;   // app_config row to read the daily limit from
+  defaultLimit:     number;   // fallback if config missing
+  rateLimitMessage: string;   // human-friendly message shown to user on cap
 }
 
-export const ACTIONS: Record<AiAction, ActionConfig> = {
-  meal_plan: { cost: 10, dailyLimit: 5   },
-  recipe:    { cost: 5,  dailyLimit: 50  },
-  swap:      { cost: 3,  dailyLimit: 20  },
-  nutrition: { cost: 1,  dailyLimit: 200 },
+const ACTION_META: Record<AiAction, ActionMeta> = {
+  meal_plan: {
+    configKey:        "limit_meal_plan",
+    defaultLimit:     3,
+    rateLimitMessage: "Your plan is already looking great! You can regenerate again tomorrow.",
+  },
+  recipe: {
+    configKey:        "limit_recipe",
+    defaultLimit:     8,
+    rateLimitMessage: "You've explored a lot of recipes today! More flavours await tomorrow.",
+  },
+  swap: {
+    configKey:        "limit_swap",
+    defaultLimit:     5,
+    rateLimitMessage: "You've swapped quite a few meals today! Fresh ideas come back tomorrow.",
+  },
+  nutrition: {
+    configKey:        "limit_nutrition",
+    defaultLimit:     20,
+    rateLimitMessage: "You've logged a lot today! AI lookups reset tomorrow morning.",
+  },
 };
 
 export const CORS = {
@@ -64,7 +80,6 @@ interface RecordParams {
   tokens_in?:   number;
   tokens_out?:  number;
   meta?:        Record<string, unknown>;
-  refund?:      boolean;
 }
 
 export interface GuardOk {
@@ -73,17 +88,13 @@ export interface GuardOk {
   user:            { id: string; email?: string };
   supabase:        SupabaseClient;
   admin:           SupabaseClient | null;
-  /** Mark this request as a free cache hit. Logs usage with status='cache_hit' and 0 credits. */
+  /** Log this request as a free cache hit (0 cost). */
   markCacheHit:    (meta?: Record<string, unknown>) => Promise<void>;
   /**
-   * Reserve credits and start a usage log row. Returns recordOutcome() which
-   * must be awaited at the end of the handler to finalize (or refund).
+   * Begin a billable call: inserts a pending log row and returns
+   * recordOutcome() to finalize it with token counts / status.
    */
-  charge:          () => Promise<{
-    logId:          string;
-    balanceAfter:   number;
-    recordOutcome:  (p: RecordParams) => Promise<void>;
-  }>;
+  start:           () => { recordOutcome: (p: RecordParams) => Promise<void> };
   json:            typeof json;
 }
 
@@ -102,7 +113,7 @@ export function costMicrosGpt4oMini(tokens_in?: number, tokens_out?: number): bi
 }
 
 export async function guard(req: Request, action: AiAction): Promise<GuardOk | GuardErr> {
-  const cfg = ACTIONS[action];
+  const meta = ACTION_META[action];
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return { ok: false, response: json({ error: "Unauthorized" }, 401) };
@@ -124,16 +135,25 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
     return { ok: false, response: json({ error: "Email not verified" }, 403) };
   }
 
-  // Rate limit (atomic increment in DB). Always counts attempts, even cache
-  // hits — abuse via cache hammering is still abuse.
+  // Live limit from app_config, with a safe fallback.
+  let dailyLimit = meta.defaultLimit;
+  const cfg = await supabase.rpc("get_config_int", {
+    p_key:     meta.configKey,
+    p_default: meta.defaultLimit,
+  });
+  if (!cfg.error && typeof cfg.data === "number") {
+    dailyLimit = cfg.data;
+  }
+
+  // Atomic per-user per-day counter. Always counts attempts, even cache hits —
+  // a script hammering the cache is still abuse.
   const rateRpc = await supabase.rpc("check_and_increment_rate_limit", {
     p_user_id:     user.id,
     p_action:      action,
-    p_daily_limit: cfg.dailyLimit,
+    p_daily_limit: dailyLimit,
   });
   if (rateRpc.error) {
     console.error("rate_limit rpc failed:", rateRpc.error);
-    // Fail closed: if we can't check, don't burn the API.
     return { ok: false, response: json({ error: "Service unavailable" }, 503) };
   }
   if (rateRpc.data === false) {
@@ -141,19 +161,16 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
     return {
       ok: false,
       response: json({
-        error:      "Daily limit reached",
-        code:       "rate_limited",
-        retry_after: "tomorrow",
+        error:        meta.rateLimitMessage,
+        code:         "rate_limited",
+        retry_after:  "tomorrow",
       }, 429),
     };
   }
 
-  // Daily refill (idempotent per UTC day).
-  await supabase.rpc("ensure_daily_refill", { p_user_id: user.id, p_daily_grant: 5 });
-
   const t0 = performance.now();
 
-  const markCacheHit = async (meta?: Record<string, unknown>) => {
+  const markCacheHit = async (extra?: Record<string, unknown>) => {
     const writer = admin ?? supabase;
     await writer.from("ai_usage_log").insert({
       user_id:         user.id,
@@ -162,53 +179,25 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
       cache_hit:       true,
       credits_charged: 0,
       latency_ms:      Math.round(performance.now() - t0),
-      meta:            meta ?? null,
+      meta:            extra ?? null,
     });
   };
 
-  const charge = async () => {
-    const deductRpc = await supabase.rpc("deduct_credits", {
-      p_user_id: user.id,
-      p_amount:  cfg.cost,
-      p_action:  action,
-    });
-    if (deductRpc.error) {
-      console.error("deduct rpc failed:", deductRpc.error);
-      throw new GuardError(json({ error: "Service unavailable" }, 503));
-    }
-    const balanceAfter = deductRpc.data as number;
-    if (balanceAfter < 0) {
-      // Out of credits → log and tell client cleanly.
+  const start = () => {
+    const writerPromise = (async () => {
       const writer = admin ?? supabase;
-      await writer.from("ai_usage_log").insert({
+      const ins = await writer.from("ai_usage_log").insert({
         user_id:         user.id,
         action,
-        status:          "no_credits",
+        status:          "pending",
         cache_hit:       false,
         credits_charged: 0,
-        latency_ms:      Math.round(performance.now() - t0),
-      });
-      throw new GuardError(json({
-        error:           "Out of credits",
-        code:            "no_credits",
-        cost:            cfg.cost,
-      }, 402));
-    }
-
-    // Insert a pending log row so we always have a record, even if the handler
-    // crashes before recordOutcome().
-    const writer = admin ?? supabase;
-    const ins = await writer.from("ai_usage_log").insert({
-      user_id:         user.id,
-      action,
-      status:          "pending",
-      cache_hit:       false,
-      credits_charged: cfg.cost,
-    }).select("id").single();
-
-    const logId = (ins.data?.id as string) ?? crypto.randomUUID();
+      }).select("id").single();
+      return { writer, logId: (ins.data?.id as string) ?? crypto.randomUUID() };
+    })();
 
     const recordOutcome = async (p: RecordParams) => {
+      const { writer, logId } = await writerPromise;
       const cost_micros = costMicrosGpt4oMini(p.tokens_in, p.tokens_out);
       await writer
         .from("ai_usage_log")
@@ -221,18 +210,9 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
           meta:        p.meta ?? null,
         })
         .eq("id", logId);
-
-      if (p.refund) {
-        await supabase.rpc("refund_credits", {
-          p_user_id: user.id,
-          p_amount:  cfg.cost,
-          p_action:  action,
-          p_ref_id:  logId,
-        });
-      }
     };
 
-    return { logId, balanceAfter, recordOutcome };
+    return { recordOutcome };
   };
 
   return {
@@ -242,21 +222,13 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
     supabase,
     admin,
     markCacheHit,
-    charge,
+    start,
     json,
   };
 }
 
-class GuardError extends Error {
-  response: Response;
-  constructor(response: Response) {
-    super("guard");
-    this.response = response;
-  }
-}
-
-export function asResponse(err: unknown): Response | null {
-  if (err instanceof GuardError) return err.response;
+/** Kept for source-compat with handlers that catch a GuardError. */
+export function asResponse(_err: unknown): Response | null {
   return null;
 }
 

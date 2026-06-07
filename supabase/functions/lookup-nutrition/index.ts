@@ -52,12 +52,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2) Miss → reserve credits, then call OpenAI.
-    const { recordOutcome } = await g.charge();
+    // 2) Miss → log a pending row, then call OpenAI.
+    const { recordOutcome } = g.start();
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      await recordOutcome({ status: "openai_error", refund: true });
+      await recordOutcome({ status: "openai_error" });
       return json({ error: "OpenAI not configured" }, 500);
     }
 
@@ -104,8 +104,8 @@ Rules:
       if (!content) throw new Error("No response from OpenAI");
       nutrition = JSON.parse(content);
     } catch (err) {
-      await recordOutcome({ status: "openai_error", refund: true, meta: { error: String(err) } });
-      return json({ error: "Could not look up nutrition, credits refunded" }, 502);
+      await recordOutcome({ status: "openai_error", meta: { error: String(err) } });
+      return json({ error: "Could not look up nutrition, please try again" }, 502);
     }
 
     // 3) Persist to cache (best-effort, needs admin client; falls back silently).

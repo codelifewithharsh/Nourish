@@ -10,7 +10,7 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { useAI } from '@/features/credits/CreditsContext';
+import { useAI } from '@/features/pro';
 import { partitionIngredients, toMealKey, type Ingredient } from '@/features/recipe/useRecipe';
 
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
@@ -678,7 +678,7 @@ export default function MealsScreen() {
       analytics.planRegenerated();
       await fetchData(userId);
     } catch {
-      // CreditsProvider surfaces 402/429; stale plan stays visible on other errors
+      // ProProvider surfaces 429 toast; stale plan stays visible on other errors
     } finally {
       setRegenerating(false);
     }

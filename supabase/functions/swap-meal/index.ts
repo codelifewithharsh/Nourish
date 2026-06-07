@@ -66,7 +66,7 @@ Respond ONLY with valid JSON:
 }`;
 
     // Swaps are user-driven and creative — no cache lookup; every call hits AI.
-    const { recordOutcome } = await g.charge();
+    const { recordOutcome } = g.start();
 
     let meal: Record<string, unknown>;
     let tokensIn  = 0;
@@ -92,8 +92,8 @@ Respond ONLY with valid JSON:
       if (!content) throw new Error("No response from OpenAI");
       meal = JSON.parse(content);
     } catch (err) {
-      await recordOutcome({ status: "openai_error", refund: true, meta: { error: String(err) } });
-      return json({ error: "Could not find a swap, credits refunded" }, 502);
+      await recordOutcome({ status: "openai_error", meta: { error: String(err) } });
+      return json({ error: "Could not find a swap, please try again" }, 502);
     }
 
     await recordOutcome({

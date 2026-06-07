@@ -49,12 +49,12 @@ Deno.serve(async (req) => {
     const tableMissing = cacheRes.error?.code === "42P01"
       || (cacheRes.error?.message ?? "").toLowerCase().includes("does not exist");
 
-    // 2) Miss → reserve credits, then call OpenAI.
-    const { recordOutcome } = await g.charge();
+    // 2) Miss → log a pending row, then call OpenAI.
+    const { recordOutcome } = g.start();
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      await recordOutcome({ status: "openai_error", refund: true });
+      await recordOutcome({ status: "openai_error" });
       return json({ error: "OpenAI not configured" }, 500);
     }
 
@@ -134,8 +134,8 @@ Respond ONLY with valid JSON in this exact shape:
       if (!content) throw new Error("No response from OpenAI");
       parsed = JSON.parse(content);
     } catch (err) {
-      await recordOutcome({ status: "openai_error", refund: true, meta: { error: String(err) } });
-      return json({ error: "Could not generate recipe, credits refunded" }, 502);
+      await recordOutcome({ status: "openai_error", meta: { error: String(err) } });
+      return json({ error: "Could not generate recipe, please try again" }, 502);
     }
 
     const toSave = {

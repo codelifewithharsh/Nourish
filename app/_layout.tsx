@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
-import { CreditsProvider } from '@/features/credits/CreditsContext';
+import { ProProvider } from '@/features/pro';
 import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
@@ -101,14 +101,14 @@ export default function RootLayout() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <CreditsProvider>
+        <ProProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="recipe/[id]" />
           </Stack>
           <ToastContainer />
-        </CreditsProvider>
+        </ProProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

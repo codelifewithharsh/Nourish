@@ -11,8 +11,7 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { useAI } from '@/features/credits/CreditsContext';
-import { COST } from '@/features/credits/costs';
+import { useAI } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 import { analytics } from '@/lib/analytics';
 
@@ -158,7 +157,7 @@ function AIHero({
           <Sparkles size={16} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} fillOpacity={0.2} />
         </Animated.View>
         <Txt style={hero.aiLabel}>AI Nutritionist</Txt>
-        <View style={hero.costChip}><Txt style={hero.costChipTxt}>{COST.nutrition} cr</Txt></View>
+        <View style={hero.costChip}><Txt style={hero.costChipTxt}>PRO</Txt></View>
       </View>
 
       <TextInput
@@ -686,10 +685,8 @@ export default function LogScreen() {
       setResult(data);
     } catch (err) {
       haptic.warning();
-      if (err instanceof AIError && err.code === 'no_credits') {
-        // Modal already shown by CreditsProvider; no extra alert.
-      } else if (err instanceof AIError && err.code === 'rate_limited') {
-        // Toast already shown by CreditsProvider.
+      if (err instanceof AIError && err.code === 'rate_limited') {
+        // Toast already shown by ProProvider — no extra alert.
       } else {
         Alert.alert('Could not find that', 'Try describing the food differently — like "1 bowl of dal" or "2 rotis"');
       }

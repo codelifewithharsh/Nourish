@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAI } from '@/features/credits/CreditsContext';
+import { useAI } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 
 export interface Ingredient {
@@ -124,10 +124,9 @@ export function useRecipe(mealName: string | null | undefined) {
       const data = await invoke<{ recipe: Recipe }>('get-recipe', { meal_name: name });
       setRecipe(data.recipe);
     } catch (err) {
-      if (err instanceof AIError && (err.code === 'no_credits' || err.code === 'rate_limited')) {
-        // CreditsProvider already showed the modal/toast — don't set an error
-        // string here. The recipe screen will detect !recipe && !error and
-        // navigate back automatically.
+      if (err instanceof AIError && err.code === 'rate_limited') {
+        // ProProvider already showed the toast — don't set an error string.
+        // The recipe screen detects !recipe && !error and navigates back.
       } else {
         setError(err instanceof AIError ? err.message : 'Could not load recipe');
       }
