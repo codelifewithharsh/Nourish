@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import {
   Modal, View, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Easing, Dimensions, Alert, Linking, Image,
+  Animated, Easing, Dimensions, Alert, Image,
   PanResponder, DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,12 +34,13 @@ interface Props {
   onClose: () => void;
   onShowHowItWorks: () => void;
   onShowNotifications: () => void;
+  onShowFeedback: () => void;
 }
 
 export function HomeDrawer({
   visible, name, email, avatarUrl, goalLabel, streak,
   eatenCalories, targetCalories, eatenProtein, targetProtein,
-  onClose, onShowHowItWorks, onShowNotifications,
+  onClose, onShowHowItWorks, onShowNotifications, onShowFeedback,
 }: Props) {
   const insets = useSafeAreaInsets();
   const slideX  = useRef(new Animated.Value(-DRAWER_W)).current;
@@ -225,7 +226,7 @@ export function HomeDrawer({
                 icon={<MessageSquareHeart size={18} color={Colors.secondary} strokeWidth={2.2} />}
                 label="Send feedback"
                 hint="Help us improve Nourish"
-                onPress={() => Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=Nourish%20feedback').catch(() => {})}
+                onPress={() => { haptic.light(); close(); setTimeout(onShowFeedback, 280); }}
               />
               <DrawerItem
                 icon={<BookOpen size={18} color={Colors.secondary} strokeWidth={2.2} />}

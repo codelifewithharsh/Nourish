@@ -240,5 +240,5 @@ export function useHomeData() {
     return () => { waterSub.remove(); profileSub.remove(); };
   }, [userId, fetchAll]);
 
-  return { data, loading, logMeal, updateWater, refresh };
+  return { data, loading, logMeal, updateWater, refresh, userId };
 }

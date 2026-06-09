@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { OGAvatar } from '@/features/pro';
 import { useMealReminders } from '@/features/notifications/useMealReminders';
 import { releaseSplash } from '@/lib/splashGate';
+import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,12 +139,13 @@ const mm = StyleSheet.create({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { data, loading, logMeal, updateWater, refresh } = useHomeData();
+  const { data, loading, logMeal, updateWater, refresh, userId } = useHomeData();
   const [minLoadDone, setMinLoadDone] = useState(false);
   const [swapMeal, setSwapMeal] = useState<Meal | null>(null);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { mealTimes, enabled: notifsEnabled, setMealTime, setEnabled: setNotifsEnabled } = useMealReminders();
   const [streakShareOpen, setStreakShareOpen] = useState(false);
   const [nudge, setNudge] = useState<{ emoji: string; message: string } | null>(null);
@@ -470,11 +472,19 @@ export default function HomeScreen() {
         onClose={() => setProfileSheetOpen(false)}
         onShowHowItWorks={() => { analytics.howItWorksOpened(); setHowItWorksOpen(true); }}
         onShowNotifications={() => setNotifSheetOpen(true)}
+        onShowFeedback={() => { analytics.feedbackTapped(); setFeedbackOpen(true); }}
       />
 
       <HowItWorksModal
         visible={howItWorksOpen}
         onClose={() => setHowItWorksOpen(false)}
+      />
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        userId={userId}
+        userEmail={data.email}
       />
 
       <StreakShareModal
