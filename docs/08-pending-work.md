@@ -40,20 +40,7 @@ Full instructions in [doc 07 §5](./07-build-deploy-env.md).
 
 ---
 
-## 🟠 P1 — Important
-
-### 3. In-app feedback surface
-Right now the only feedback channel is `mailto:codelifewithharsh@gmail.com`. Replace with an in-app form that writes to a `feedback` table (text + optional contact) so users can type without leaving the app. Pair with a "what would you love to see next?" prompt to also capture feature requests.
-
-### 4. Rate Nourish flow
-The "Rate Nourish" entry in the drawer doesn't currently surface a working rating prompt. Wire to `expo-store-review` and `StoreReview.requestReview()` on Android once a Play listing exists.
-
----
-
 ## 🟡 P2 — Quality
-
-### 5. Make the "invite a friend" copy configurable
-Drive it from `app_config` so we can A/B test the line without a redeploy. Same pattern as `login_tagline`.
 
 ### 6. AI prompt versioning
 Today every edge function has its prompt as a string literal in `index.ts`. When we change prompts we lose the ability to attribute behaviour changes to prompt changes. Move prompts into `app_config` (or a dedicated `ai_prompts` table) and version them so each `ai_usage_log` row records which prompt version it used.
@@ -121,10 +108,12 @@ These were in this list. They've shipped, so they're recorded here for posterity
 - Breathing-logo loader replacing page-level `ActivityIndicator`s.
 - Meal-reminder timings now sync between the home bell sheet and the profile screen.
 - Fixed `HowItWorksModal` rendering on Android New Architecture (`FullWindowOverlay` → `hardwareAccelerated` Modal).
+- Rate Nourish flow wired to `expo-store-review` with Play Store fallback URL.
+- Invite a friend copy driven from `app_config` key `invite_copy` (migration `20260610000001_invite_copy_config.sql`).
+- In-app feedback surface: `FeedbackSheet` with type chips (bug/feature/other), text input, optional contact field, writes to `feedback` table (migration `20260610000002_feedback_table.sql`).
 
 ## Recommended next things to ship
 
 1. **Production Supabase setup** — create prod project, `supabase db push`, deploy 5 edge functions.
 2. **Google Play account** — $25, then production build + submit.
-3. **In-app feedback surface** — see P1 #3.
-4. **Soft launch to ~10 friends** — triage based on what they complain about, beats guessing.
+3. **Soft launch to ~10 friends** — triage based on what they complain about, beats guessing.

@@ -22,6 +22,8 @@ import { Txt, BreathingLogo } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useAI, EarlyBirdBadge } from '@/features/pro';
+import { useAppConfigText } from '@/lib/appConfig';
+import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 
 import { scheduleMealReminders, cancelMealReminders, requestNotificationPermission, DEFAULT_MEAL_TIMES, MealTimes } from '@/lib/notifications';
 import { MEAL_TIMES_CHANGED_EVENT, MEAL_NOTIFS_TOGGLED_EVENT } from '@/lib/events';
@@ -361,7 +363,8 @@ type OpenRow =
 
 export default function YouScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl,  setAvatarUrl]  = useState<string | null>(null);
+  const [userEmail,  setUserEmail]  = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -378,7 +381,12 @@ export default function YouScreen() {
   const [regenerating, setRegenerating] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [streak, setStreak] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const invoke = useAI();
+  const inviteCopy = useAppConfigText(
+    'invite_copy',
+    "I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://play.google.com/store/apps/details?id=com.nourish.app",
+  );
 
   const sparklePulse = useRef(new Animated.Value(1)).current;
 
@@ -1068,9 +1076,7 @@ export default function YouScreen() {
               activeOpacity={0.8}
               onPress={async () => {
                 analytics.appShared();
-                await Share.share({
-                  message: `I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://apps.apple.com/app/nourish`,
-                });
+                await Share.share({ message: inviteCopy.replace(/\\n/g, '\n') });
               }}
             >
               <Txt style={s.actionEmoji}>🔗</Txt>
@@ -1086,7 +1092,7 @@ export default function YouScreen() {
                 if (await StoreReview.hasAction()) {
                   await StoreReview.requestReview();
                 } else {
-                  Linking.openURL('https://apps.apple.com/app/nourish').catch(() => {});
+                  Linking.openURL('https://play.google.com/store/apps/details?id=com.nourish.app').catch(() => {});
                 }
               }}
             >
@@ -1100,7 +1106,7 @@ export default function YouScreen() {
           <TouchableOpacity
             style={s.feedbackCard}
             activeOpacity={0.8}
-            onPress={() => { analytics.feedbackTapped(); Linking.openURL('mailto:codelifewithharsh@gmail.com?subject=Nourish%20feedback').catch(() => {}); }}
+            onPress={() => { analytics.feedbackTapped(); haptic.light(); setFeedbackOpen(true); }}
           >
             <View style={s.feedbackIcon}>
               <MessageSquareHeart size={16} color={Colors.accent} strokeWidth={2.2} />
@@ -1122,6 +1128,12 @@ export default function YouScreen() {
           <Txt style={s.version}>Nourish · v1.0</Txt>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        userId={userId}
+      />
     </SafeAreaView>
   );
 }

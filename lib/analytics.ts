@@ -73,6 +73,7 @@ export const analytics = {
   // ── Engagement ─────────────────────────────────────────────────────────────
   founderLinkTapped:        (props: { platform: 'instagram' | 'linkedin' | 'website' }) => posthog.capture('founder_link_tapped', props),
   feedbackTapped:           ()                                                           => posthog.capture('feedback_tapped'),
+  feedbackSubmitted:        (props: { type: 'bug' | 'feature' | 'other' })              => posthog.capture('feedback_submitted', props),
   streakShared:             (props: { streak: number })                                  => posthog.capture('streak_shared', props),
   appShared:                ()                                                           => posthog.capture('app_shared'),
   appRated:                 ()                                                           => posthog.capture('app_rated'),
