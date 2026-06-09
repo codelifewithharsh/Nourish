@@ -13,6 +13,7 @@ import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { todayStr } from '@/lib/date';
 
 // The native splash is held until splashGate releases it. This happens
 // either when the first content screen reports it has data, or when a 2s
@@ -42,7 +43,7 @@ async function handleLogWaterFromNotification() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
   const { data } = await supabase
     .from('water_logs')
     .select('glasses')

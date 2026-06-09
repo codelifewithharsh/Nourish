@@ -70,7 +70,7 @@ export function useHomeData() {
     // Fetch last 365 days of logs to calculate streak + this week
     const yearAgo = new Date();
     yearAgo.setDate(yearAgo.getDate() - 365);
-    const sixtyDaysAgoStr = yearAgo.toISOString().split('T')[0];
+    const sixtyDaysAgoStr = localDateStr(yearAgo);
 
     const [profileRes, mealPlanRes, logsRes, waterRes, historyRes] = await Promise.all([
       supabase.from('profiles').select('name, email, goal, daily_calories, daily_protein').eq('id', uid).single(),

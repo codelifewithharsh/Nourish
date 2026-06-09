@@ -14,6 +14,7 @@ import { haptic } from '@/lib/haptics';
 import { useAI } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 import { analytics } from '@/lib/analytics';
+import { todayStr, localDateStr } from '@/lib/date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,10 +70,6 @@ const MEAL_COLOR: Record<MealType, string> = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
 
 function getTimeOfDay(): { greeting: string; emoji: string; suggestedType: MealType } {
   const h = new Date().getHours();
@@ -629,7 +626,7 @@ export default function LogScreen() {
         return supabase.from('daily_logs')
           .select('meal_name, calories, protein, carbs, fat')
           .eq('user_id', uid).neq('date', today)
-          .gte('date', week.toISOString().split('T')[0])
+          .gte('date', localDateStr(week))
           .order('logged_at', { ascending: false }).limit(20);
       })(),
     ]);
