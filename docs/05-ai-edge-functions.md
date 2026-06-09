@@ -1,6 +1,6 @@
 # 05 — AI & Edge Functions
 
-*Last updated: 2026-06-08.*
+*Last updated: 2026-06-10.*
 
 This doc explains how the server side of every AI feature works: the Deno edge functions, the shared `guard()`, the OpenAI integration, and how to add a new AI action safely.
 
@@ -149,22 +149,39 @@ const parsed = JSON.parse(content);
 Why `response_format: { type: "json_object" }`?
 The model is forced to return valid JSON. Combined with a strict schema in the system prompt, parsing rarely fails.
 
+**System vs user message split.** Every function uses two messages:
+- `system`: who the AI is — "You are a professional Indian dietitian…". Stable across all calls of the same action.
+- `user`: the actual task — profile values, the dish name, the query.
+
+We didn't always do this. The original prompts crammed everything into one user message ("You are an Indian dietitian. Generate a 7-day plan for…"). Switching to system/user split improves instruction-following on `gpt-4o-mini` because the role boundary is what the model is trained to attend to. Same number of input tokens, measurably more consistent output.
+
+**Temperatures by action:**
+- `meal_plan`: `0.7` — mild creativity for variety across days
+- `recipe`: `0.7` — same
+- `swap`: `0.7` — was `0.8`, dropped because high temperature caused occasional nonsense macros (e.g. 8g protein for a paneer dish)
+- `nutrition`: `0.3` — factual lookup, low temperature for consistency
+
+The recipe function does **not** ask the AI to invent Instagram/YouTube URLs or creator handles anymore. Those used to cost ~50 tokens per call. We build deterministic search URLs server-side instead — they actually work (real YouTube search results) and cost nothing.
+
 ---
 
 ## 5. Caching — the big cost saver
 
 ### Meal plan cache (`meal_plan_cache`)
 
-The trick: profiles cluster into **shapes**. Two pure-veg users on a fat-loss goal targeting ~1800 kcal / ~80g protein with similar cuisine preferences will get *the same plan*. So we key the cache by:
+The trick: profiles cluster into **shapes**. Two pure-veg users on a fat-loss goal targeting ~1800 kcal / ~80g protein with similar cuisine preferences and the same pantry will get *the same plan*. So we key the cache by:
 
 ```
-[goal, diet_type, cuisines, restrictions, calorie_bucket, protein_bucket]
+[goal, diet_type, cuisines, restrictions, calorie_bucket, protein_bucket, kitchen_ingredients]
 ```
 
-- Calorie bucket: rounded to nearest 200 (so 1750 and 1830 both hit `c1800`).
-- Protein bucket: rounded to nearest 20.
+- Calorie bucket: rounded to nearest 100 (so 1820 and 1850 both hit `c1800`). Tightened from ±200 to ±100 because the original was too coarse to ever hit.
+- Protein bucket: rounded to nearest 10.
+- Kitchen ingredients: lowercased, comma-split, sorted, joined — so `"Paneer, Tomato"` and `"tomato,paneer"` collide. Empty pantries share `i:none`.
 
 Cache hit → free for the user, no OpenAI call.
+
+The kitchen ingredients are also passed into the prompt itself (`"Pantry on hand: ..."`) so the AI biases toward dishes that use what the user already has. This is what backs the "built around what's in your kitchen" claim — without the cache key including it, two users with very different pantries would share a plan that ignored their pantry.
 
 ### Recipe cache (`recipes` table)
 

@@ -1,6 +1,6 @@
 # 01 — Overview
 
-*Last updated: 2026-06-05.*
+*Last updated: 2026-06-10.*
 
 ## What Nourish is
 
@@ -12,7 +12,7 @@ Three things make it different from MyFitnessPal / HealthifyMe:
 
 1. **Indian-first.** Rajma, dal, roti, masala dosa — the AI knows portion sizes and macros for Indian dishes, not just American salads.
 2. **AI is the input method.** No barcode scanning, no manual macro entry. Type "2 rotis and dal" → get calories. Tap "Lighter" → swap to a lighter alternative.
-3. **Lightweight commitment.** No subscription required. Daily free credits, no sign-up paywall.
+3. **Lightweight commitment.** No subscription paywall. Every signup is a free "Early Bird Pro" member with silent per-action daily caps that tune live from `app_config`.
 
 ## The user journey
 
@@ -48,7 +48,7 @@ After onboarding, the app is four tabs and one detail screen:
 - **Profile** — one row per user in `profiles` table. Stores body stats, goal, diet preferences, calorie/protein targets, kitchen ingredients, meal notification times, etc.
 - **Meal plan** — one row per user in `meal_plans`. Stores a JSONB blob with 7 days × 3–4 meals each. Regenerated wholesale, never edited piecemeal.
 - **Daily logs** — one row per meal logged, in `daily_logs`.
-- **Credits** — virtual currency for AI actions. Users get 5 free every morning. Generating a plan = 10 credits, opening a recipe = 5, swap = 3, nutrition lookup = 1. New users get 50 welcome credits. See [doc 06](./06-credits-and-rate-limits.md) for the full system.
+- **Pro membership** — every signup is auto-Pro (`is_pro=true`, `is_early_bird=true`) — see [doc 06](./06-pro-membership.md). AI features are gated by silent per-user-per-day rate limits (3 plans, 8 recipes, 5 swaps, 20 nutrition lookups). Limits are tunable from the Supabase dashboard via `app_config` — no redeploy.
 - **Edge functions** — Deno serverless functions on Supabase that wrap OpenAI calls. The client never touches OpenAI directly; the API key stays server-side.
 - **Streak** — consecutive days with at least one logged meal. Shown on Home and the You tab. Milestone days (3, 7, 14, 30) auto-trigger a share sheet.
 

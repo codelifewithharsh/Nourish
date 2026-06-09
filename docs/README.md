@@ -18,6 +18,7 @@ If you're new, read them in order. Each builds on the previous.
 8. **[08-pending-work.md](./08-pending-work.md)** — Honest backlog of what's missing, broken, or future-facing. Prioritised.
 9. **[09-code-review.md](./09-code-review.md)** — A senior-engineer sanity pass over the whole codebase: real bugs, security holes, dummy data, dead code. Read this before any external release.
 10. **[10-lessons-learned.md](./10-lessons-learned.md)** — The hard-won technical lessons from building this app: every gotcha we hit, the reasoning behind every non-obvious choice, and what we'd want a future engineer (or future-us) to remember.
+11. **[11-interview-prep.md](./11-interview-prep.md)** — Comprehensive end-to-end explanation of Nourish for learning and interviews. Read this if you want to talk confidently about every layer — architecture, AI prompts, RLS, OAuth, TDEE — with the trade-offs and reasoning that back each choice.
 
 ## Keep these docs alive
 
