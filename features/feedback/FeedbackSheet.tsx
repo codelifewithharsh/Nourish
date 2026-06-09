@@ -109,7 +109,7 @@ export function FeedbackSheet({ visible, onClose, userId, userEmail }: Props) {
 
   const submit = async () => {
     const trimmed = message.trim();
-    if (trimmed.length < 10) { haptic.warning(); return; }
+    if (trimmed.length < 4) { haptic.warning(); return; }
     if (!userId) { haptic.warning(); return; }
     Keyboard.dismiss();
     haptic.medium();
