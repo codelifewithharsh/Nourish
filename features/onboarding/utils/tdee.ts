@@ -34,16 +34,30 @@ export function calculateNutrition(
   else if (goal === 'muscle_gain') dailyCalories = tdee + 250;
   else dailyCalories = tdee;
 
-  // Protein is based on ideal body weight, not actual weight.
-  // This prevents overweight users from getting unrealistically high targets.
-  // Multipliers are evidence-based for Indian dietary context:
-  //   stay_healthy  → 1.0 g/kg IBW  (WHO minimum for sedentary adults)
-  //   fat_loss      → 1.4 g/kg IBW  (preserve muscle during a deficit)
-  //   muscle_gain   → 1.8 g/kg IBW  (hypertrophy range, achievable on Indian diet)
+  // Protein base uses ideal body weight, not actual weight, to give every user
+  // a target sized for the body they should have — not the one they have today.
+  // - Overweight users (actual > IBW): use Adjusted Body Weight to soften the
+  //   gap (IBW + 25% of excess). A 100kg person at IBW 60 gets a base of 70,
+  //   not 60 — feels less punishing and is the clinical-nutrition standard.
+  // - Normal weight (actual ≈ IBW): IBW and actual are basically the same.
+  // - Underweight (actual < IBW): use IBW so they get the protein they need
+  //   to build to a healthy weight, not their current low weight.
+  //
+  // Multipliers tuned for Indian dietary context (lower than US sports-nutrition
+  // standards because most users are not athletes):
+  //   stay_healthy  → 1.0 g/kg  (WHO minimum for sedentary adults)
+  //   fat_loss      → 1.4 g/kg  (preserve muscle during a deficit)
+  //   muscle_gain   → 1.8 g/kg  (hypertrophy range, achievable on Indian diet)
   // Adults 55+ get +0.2 g/kg to counter age-related muscle loss (sarcopenia).
   const ibw = idealBodyWeight(heightCm);
-  // Cap protein base at actual weight — if someone is underweight, use actual weight
-  const proteinBase = Math.min(ibw, weightKg);
+  let proteinBase: number;
+  if (weightKg > ibw) {
+    // Overweight: Adjusted Body Weight = IBW + 0.25 × (actual − IBW)
+    proteinBase = ibw + 0.25 * (weightKg - ibw);
+  } else {
+    // Normal or underweight: IBW is the right target
+    proteinBase = ibw;
+  }
 
   let proteinMultiplier: number;
   if (goal === 'muscle_gain')  proteinMultiplier = 1.8;
