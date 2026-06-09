@@ -173,13 +173,12 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
   const markCacheHit = async (extra?: Record<string, unknown>) => {
     const writer = admin ?? supabase;
     await writer.from("ai_usage_log").insert({
-      user_id:         user.id,
+      user_id:    user.id,
       action,
-      status:          "cache_hit",
-      cache_hit:       true,
-      credits_charged: 0,
-      latency_ms:      Math.round(performance.now() - t0),
-      meta:            extra ?? null,
+      status:     "cache_hit",
+      cache_hit:  true,
+      latency_ms: Math.round(performance.now() - t0),
+      meta:       extra ?? null,
     });
   };
 
@@ -187,11 +186,10 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
     const writerPromise = (async () => {
       const writer = admin ?? supabase;
       const ins = await writer.from("ai_usage_log").insert({
-        user_id:         user.id,
+        user_id:   user.id,
         action,
-        status:          "pending",
-        cache_hit:       false,
-        credits_charged: 0,
+        status:    "pending",
+        cache_hit: false,
       }).select("id").single();
       return { writer, logId: (ins.data?.id as string) ?? crypto.randomUUID() };
     })();
@@ -236,8 +234,7 @@ async function logRateLimited(client: SupabaseClient, user_id: string, action: A
   await client.from("ai_usage_log").insert({
     user_id,
     action,
-    status:          "rate_limited",
-    cache_hit:       false,
-    credits_charged: 0,
+    status:    "rate_limited",
+    cache_hit: false,
   });
 }
