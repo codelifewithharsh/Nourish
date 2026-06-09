@@ -50,18 +50,33 @@ interface ProfileShape {
   cuisines:             string[];
   diet_type:            string;
   restrictions:         string[];
-  age:                  number;
-  weight_kg:            number;
   kitchen_ingredients?: string | null;
 }
 
-// Bucketing collapses near-identical profiles into a single cache key. Two
-// users wanting 1900 kcal vs 1950 kcal don't need separate AI generations.
+// Normalise free-text kitchen ingredients into a stable comma-separated list so
+// "Paneer, Tomato " and "tomato,paneer" share the same cache key.
+function normaliseIngredients(raw?: string | null): string {
+  if (!raw) return "";
+  return raw
+    .toLowerCase()
+    .split(/[,\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .sort()
+    .join(",")
+    .slice(0, 200);
+}
+
+// Bucketing collapses near-identical profiles into a single cache key.
+// Tightened from ±200 kcal / ±20g to ±100 kcal / ±10g — far more cache hits
+// at the cost of a tiny accuracy loss the AI will absorb in its own ±100 kcal
+// daily budget rule.
 function planCacheKey(p: ProfileShape): string {
-  const calBucket     = Math.round((p.daily_calories ?? 2000) / 200) * 200;
-  const proteinBucket = Math.round((p.daily_protein  ?? 60)   / 20)  * 20;
+  const calBucket     = Math.round((p.daily_calories ?? 2000) / 100) * 100;
+  const proteinBucket = Math.round((p.daily_protein  ?? 60)   / 10)  * 10;
   const cuisines      = [...(p.cuisines ?? [])].sort().join(",") || "north_indian";
   const restrictions  = [...(p.restrictions ?? [])].sort().join(",") || "none";
+  const ingredients   = normaliseIngredients(p.kitchen_ingredients);
   return [
     p.goal      ?? "stay_healthy",
     p.diet_type ?? "vegetarian",
@@ -69,18 +84,42 @@ function planCacheKey(p: ProfileShape): string {
     restrictions,
     `c${calBucket}`,
     `p${proteinBucket}`,
+    ingredients ? `i:${ingredients}` : "i:none",
   ].join("|").toLowerCase();
 }
 
-function buildPrompt(profile: ProfileShape): string {
+// Diet rule depends on what the user actually eats — non-veg users shouldn't
+// be told "all meals must be vegetarian".
+function dietRule(dietType: string): string {
+  switch (dietType) {
+    case "vegan":      return "All meals must be Indian vegan recipes (no dairy, no eggs, no honey).";
+    case "eggetarian": return "All meals must be Indian vegetarian or egg-based recipes (no meat or fish).";
+    case "non_veg":    return "Meals may include Indian chicken, fish, or egg dishes alongside vegetarian options.";
+    case "pure_veg":
+    default:           return "All meals must be Indian vegetarian recipes (no eggs, no meat, no fish).";
+  }
+}
+
+const SYSTEM_PROMPT =
+  "You are a professional Indian dietitian. You design realistic 7-day home-cooked meal plans " +
+  "that match the user's body, goal, and pantry. You always return valid JSON only — no prose, no markdown.";
+
+function buildUserPrompt(profile: ProfileShape): string {
   const cuisineStr     = profile.cuisines.length > 0
     ? profile.cuisines.join(", ").replace(/_/g, " ")
     : "North Indian";
   const restrictionStr = profile.restrictions.length > 0
     ? `Avoid: ${profile.restrictions.join(", ").replace(/_/g, " ")}.`
     : "No restrictions.";
+  const kitchenStr     = profile.kitchen_ingredients?.trim()
+    ? `- Pantry on hand: ${profile.kitchen_ingredients.trim()}`
+    : "";
 
-  return `You are a professional Indian dietitian. Generate a 7-day meal plan for this person:
+  const pantryRule = profile.kitchen_ingredients?.trim()
+    ? "- Lean toward meals that use the pantry items above; introduce 1–2 cheap additions per meal only if needed."
+    : "";
+
+  return `Generate a 7-day meal plan for this person:
 
 - Goal: ${profile.goal.replace(/_/g, " ")}
 - Daily calorie target: ${profile.daily_calories} kcal
@@ -88,14 +127,16 @@ function buildPrompt(profile: ProfileShape): string {
 - Diet type: ${profile.diet_type.replace(/_/g, " ")}
 - Preferred cuisines: ${cuisineStr}
 - ${restrictionStr}
+${kitchenStr}
 
 Rules:
 - 3 meals per day: breakfast, lunch, dinner
-- All meals must be Indian vegetarian recipes
+- ${dietRule(profile.diet_type)}
 - Each meal must match the cuisine preference
 - Spread calories and protein evenly across meals
 - Total daily calories must be within 100 kcal of the target
 - Total daily protein must be within 10g of the target
+${pantryRule}
 
 Respond ONLY with valid JSON in this exact format, no extra text:
 {
@@ -123,7 +164,7 @@ Deno.serve(async (req) => {
   try {
     const { data: profile, error: profileError } = await g.supabase
       .from("profiles")
-      .select("goal, daily_calories, daily_protein, cuisines, diet_type, restrictions, age, weight_kg, kitchen_ingredients")
+      .select("goal, daily_calories, daily_protein, cuisines, diet_type, restrictions, kitchen_ingredients")
       .eq("id", g.userId)
       .single();
 
@@ -168,8 +209,11 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
-            model:           "gpt-4o-mini",
-            messages:        [{ role: "user", content: buildPrompt(profile as ProfileShape) }],
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user",   content: buildUserPrompt(profile as ProfileShape) },
+            ],
             temperature:     0.7,
             response_format: { type: "json_object" },
           }),

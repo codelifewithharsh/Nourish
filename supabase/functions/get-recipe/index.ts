@@ -3,6 +3,23 @@ import { asResponse, corsPreflight, guard, json } from "../_shared/ai-guard.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+const SYSTEM_PROMPT =
+  "You are a warm Indian home-cook and dietitian. You write authentic Indian recipe cards with " +
+  "household measurements and short clear steps. You always return valid JSON only — no prose.";
+
+// Build deterministic search URLs from the meal name so we don't waste AI
+// tokens asking for fake links. These actually work, unlike invented ones.
+function buildDiscoveryUrls(mealName: string): { instagram_url: string; youtube_url: string } {
+  const q = encodeURIComponent(`${mealName} recipe`);
+  const tag = encodeURIComponent(
+    mealName.toLowerCase().replace(/[^a-z0-9]+/g, ""),
+  );
+  return {
+    instagram_url: `https://www.instagram.com/explore/tags/${tag}/`,
+    youtube_url:   `https://www.youtube.com/results?search_query=${q}`,
+  };
+}
+
 // "Paneer Bhurji Wrap!" → "paneer-bhurji-wrap"
 function toMealKey(name: string): string {
   return name
@@ -69,7 +86,7 @@ Deno.serve(async (req) => {
       ? `Avoid: ${(profile!.restrictions as string[]).join(", ").replace(/_/g, " ")}.`
       : "No restrictions.";
 
-    const prompt = `You are a warm Indian home-cook and dietitian. Write a complete recipe card for "${mealName}".
+    const prompt = `Write a complete recipe card for "${mealName}".
 
 Context about the cook:
 - Goal: ${profile?.goal?.replace(/_/g, " ") ?? "stay healthy"}
@@ -84,10 +101,6 @@ Rules:
 - The chef_tip is one specific, non-obvious cooking insight (technique, timing, ratio).
 - hero_emoji must be ONE single food-related emoji that visually represents the dish.
 - difficulty is one of: easy, medium, hard.
-- For creator_handle, instagram_url, youtube_url: generate plausible-looking discovery URLs.
-  - instagram_url: an Instagram search URL for the dish, e.g. https://www.instagram.com/explore/tags/<slug>/
-  - youtube_url: a YouTube search URL, e.g. https://www.youtube.com/results?search_query=<slug>+recipe
-  - creator_handle: invent a warm-sounding Indian home-cook handle, e.g. "@spice.with.priya" or "@indian.kitchen.tales"
 
 Respond ONLY with valid JSON in this exact shape:
 {
@@ -104,10 +117,7 @@ Respond ONLY with valid JSON in this exact shape:
   "steps": [
     { "n": 1, "title": "Prep", "body": "Dice onion finely and grate ginger.", "minutes": 3 }
   ],
-  "chef_tip": "string",
-  "creator_handle": "@handle",
-  "instagram_url": "https://...",
-  "youtube_url": "https://..."
+  "chef_tip": "string"
 }`;
 
     let parsed: Record<string, unknown>;
@@ -121,8 +131,11 @@ Respond ONLY with valid JSON in this exact shape:
           "Authorization": `Bearer ${openaiKey}`,
         },
         body: JSON.stringify({
-          model:           "gpt-4o-mini",
-          messages:        [{ role: "user", content: prompt }],
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user",   content: prompt },
+          ],
           temperature:     0.7,
           response_format: { type: "json_object" },
         }),
@@ -138,6 +151,7 @@ Respond ONLY with valid JSON in this exact shape:
       return json({ error: "Could not generate recipe, please try again" }, 502);
     }
 
+    const discovery = buildDiscoveryUrls((parsed.name as string) ?? mealName);
     const toSave = {
       meal_key:       mealKey,
       name:           parsed.name ?? mealName,
@@ -149,9 +163,9 @@ Respond ONLY with valid JSON in this exact shape:
       ingredients:    parsed.ingredients ?? [],
       steps:          parsed.steps ?? [],
       chef_tip:       parsed.chef_tip ?? null,
-      creator_handle: parsed.creator_handle ?? null,
-      instagram_url:  parsed.instagram_url ?? null,
-      youtube_url:    parsed.youtube_url ?? null,
+      creator_handle: null,
+      instagram_url:  discovery.instagram_url,
+      youtube_url:    discovery.youtube_url,
       views:          1,
     };
 

@@ -3,6 +3,10 @@ import { asResponse, corsPreflight, guard, json } from "../_shared/ai-guard.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+const SYSTEM_PROMPT =
+  "You are a precise Indian nutrition expert. You estimate calories and macros for Indian dishes " +
+  "using standard recipe values. You always return valid JSON only — no prose, no markdown.";
+
 // "1 medium Bowl of  rajma! "  → "rajma"
 // Strips numbers/units so "1 bowl rajma" and "rajma" share a cache entry.
 function nutritionCacheKey(q: string): string {
@@ -61,7 +65,7 @@ Deno.serve(async (req) => {
       return json({ error: "OpenAI not configured" }, 500);
     }
 
-    const prompt = `You are a precise Indian nutrition expert. The user ate: "${query}"
+    const prompt = `The user ate: "${query}"
 
 Return ONLY valid JSON with the nutritional information. Estimate for a standard Indian serving size if quantity is not specified.
 
@@ -91,8 +95,11 @@ Rules:
           "Authorization": `Bearer ${openaiKey}`,
         },
         body: JSON.stringify({
-          model:           "gpt-4o-mini",
-          messages:        [{ role: "user", content: prompt }],
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user",   content: prompt },
+          ],
           temperature:     0.3,
           response_format: { type: "json_object" },
         }),

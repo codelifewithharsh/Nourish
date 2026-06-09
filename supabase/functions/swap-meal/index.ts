@@ -3,6 +3,10 @@ import { asResponse, corsPreflight, guard, json } from "../_shared/ai-guard.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+const SYSTEM_PROMPT =
+  "You are a professional Indian dietitian. You suggest realistic single-meal swaps " +
+  "that match the user's diet, cuisine, and pantry. You always return valid JSON only — no prose.";
+
 Deno.serve(async (req) => {
   const pf = corsPreflight(req); if (pf) return pf;
 
@@ -37,7 +41,7 @@ Deno.serve(async (req) => {
       ? `Prefer using these available ingredients: ${resolvedIngredients}.`
       : "";
 
-    const prompt = `You are a professional Indian dietitian. Suggest ONE alternative ${mealType} meal.
+    const prompt = `Suggest ONE alternative ${mealType} meal.
 
 Current meal being replaced: "${currentMeal}"
 User profile:
@@ -79,9 +83,12 @@ Respond ONLY with valid JSON:
           "Authorization": `Bearer ${openaiKey}`,
         },
         body: JSON.stringify({
-          model:           "gpt-4o-mini",
-          messages:        [{ role: "user", content: prompt }],
-          temperature:     0.8,
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user",   content: prompt },
+          ],
+          temperature:     0.7,
           response_format: { type: "json_object" },
         }),
       });
