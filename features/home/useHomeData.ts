@@ -82,7 +82,7 @@ export function useHomeData() {
 
     const profile = profileRes.data;
     const targetCalories = profile?.daily_calories ?? 2000;
-    const targetProtein  = profile?.daily_protein  ?? 120;
+    const targetProtein  = profile?.daily_protein  ?? 60;
     const proteinCals   = targetProtein * 4;
     const remainingCals = targetCalories - proteinCals;
     const targetCarbs   = Math.round((remainingCals * 0.6) / 4);
