@@ -66,8 +66,8 @@ const GOAL_LABEL: Record<Goal, string> = {
 };
 
 const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
-  sedentary:      'Sedentary',
-  lightly_active: 'Lightly Active',
+  sedentary:      'Mostly Sitting',
+  lightly_active: 'A Bit Active',
   very_active:    'Very Active',
 };
 

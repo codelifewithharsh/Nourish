@@ -12,16 +12,16 @@ interface ActivityOption {
 }
 
 const OPTIONS: ActivityOption[] = [
-  { value: 'sedentary',      emoji: '🪑', label: 'Mostly Sitting',  subtitle: 'Desk job, little exercise' },
-  { value: 'lightly_active', emoji: '🚶', label: 'Lightly Active',  subtitle: 'Some walking, occasional workouts' },
-  { value: 'very_active',    emoji: '🏋️', label: 'Very Active',     subtitle: 'Regular gym, sports, or physical work' },
+  { value: 'sedentary',      emoji: '🪑', label: 'Mostly Sitting',  subtitle: 'Office/home most of the day, rarely break a sweat' },
+  { value: 'lightly_active', emoji: '🚶', label: 'A Bit Active',    subtitle: 'Daily walk, light yoga, or workout 1–3 days/week' },
+  { value: 'very_active',    emoji: '🏋️', label: 'Very Active',     subtitle: 'Gym 4+ days/week, sports, or physical job' },
 ];
 
 const FACTS = [
-  '⚡ Activity level affects 30% of your calorie needs',
-  '🏋️ Gym goers need 25% more protein daily',
-  '🚶 Even light activity boosts metabolism',
-  '🪑 Desk workers can still hit their goals',
+  '⚡ Activity level shapes 30% of your calorie target',
+  '🏋️ Regular gym-goers need more protein to recover',
+  '🚶 Even a daily walk makes a real difference',
+  '🪑 Most Indians are more sedentary than they think',
 ];
 
 function RotatingFactChip() {
@@ -105,7 +105,7 @@ export function ActivityScreen({ selected, onSelect }: ActivityScreenProps) {
         <View style={styles.factRow}>
           <RotatingFactChip />
         </View>
-        <Txt style={styles.socialProof}>🌱 Joined by 12,400 Indian vegetarians</Txt>
+        <Txt style={styles.socialProof}>🌱 Pick what fits your typical weekday</Txt>
       </View>
     </View>
   );
