@@ -14,7 +14,7 @@ import { Sparkles, ArrowUp, X, Check, Lightbulb } from 'lucide-react-native';
 import { haptic } from '@/lib/haptics';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
-import { useAI } from '@/features/pro';
+import { useAI, useProMember } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
   }, []);
   const inputRef = useRef<TextInput>(null);
   const invoke = useAI();
+  const { isPro } = useProMember();
 
   const aiErrorMsg = (err: unknown, fallback: string) =>
     err instanceof AIError && err.code === 'rate_limited'
@@ -256,7 +257,9 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
                           <Sparkles size={14} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} fillOpacity={0.2} />
                         </Animated.View>
                         <Txt style={s.aiLabel}>AI Nutritionist</Txt>
-                        <View style={s.costChip}><Txt style={s.costChipTxt}>PRO</Txt></View>
+                        {isPro && (
+                          <View style={s.costChip}><Txt style={s.costChipTxt}>PRO</Txt></View>
+                        )}
                       </View>
 
                       <TextInput

@@ -21,7 +21,7 @@ import { Colors } from '@/constants/colors';
 import { Txt, BreathingLogo } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { useAI, EarlyBirdBadge } from '@/features/pro';
+import { useAI, EarlyBirdBadge, useProMember } from '@/features/pro';
 import { useAppConfigText } from '@/lib/appConfig';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 
@@ -391,6 +391,7 @@ export default function YouScreen() {
   const [streak, setStreak] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const invoke = useAI();
+  const { isPro } = useProMember();
   const inviteCopy = useAppConfigText(
     'invite_copy',
     "I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://play.google.com/store/apps/details?id=com.nourish.app",
@@ -928,10 +929,12 @@ export default function YouScreen() {
                 <>
                   <RotateCw size={16} color="#FFFFFF" strokeWidth={2.5} />
                   <Txt style={s.regenCardTxt}>Regenerate my 7-day plan</Txt>
-                  <View style={s.regenCostChip}>
-                    <Sparkles size={9} color="#FFFFFF" strokeWidth={2.5} />
-                    <Txt style={s.regenCostTxt}>PRO</Txt>
-                  </View>
+                  {isPro && (
+                    <View style={s.regenCostChip}>
+                      <Sparkles size={9} color="#FFFFFF" strokeWidth={2.5} />
+                      <Txt style={s.regenCostTxt}>PRO</Txt>
+                    </View>
+                  )}
                 </>
               )}
             </TouchableOpacity>

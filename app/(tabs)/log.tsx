@@ -11,7 +11,7 @@ import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { useAI } from '@/features/pro';
+import { useAI, useProMember } from '@/features/pro';
 import { AIError } from '@/lib/aiClient';
 import { analytics } from '@/lib/analytics';
 import { todayStr, localDateStr } from '@/lib/date';
@@ -134,6 +134,7 @@ function AIHero({
   onBlur: () => void;
   inputRef: React.RefObject<TextInput | null>;
 }) {
+  const { isPro } = useProMember();
   const sparklePulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -154,7 +155,9 @@ function AIHero({
           <Sparkles size={16} color={Colors.accent} strokeWidth={2.5} fill={Colors.accent} fillOpacity={0.2} />
         </Animated.View>
         <Txt style={hero.aiLabel}>AI Nutritionist</Txt>
-        <View style={hero.costChip}><Txt style={hero.costChipTxt}>PRO</Txt></View>
+        {isPro && (
+          <View style={hero.costChip}><Txt style={hero.costChipTxt}>PRO</Txt></View>
+        )}
       </View>
 
       <TextInput
@@ -235,7 +238,12 @@ function SuggestionChips({
   return (
     <View style={sc.wrap}>
       <Txt style={sc.label}>{sectionLabel}</Txt>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={sc.row}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={sc.row}
+        keyboardShouldPersistTaps="handled"
+      >
         {chips.map(({ text, cached }, i) => {
           const isRecent = cached !== null;
           return (
@@ -244,6 +252,7 @@ function SuggestionChips({
               style={[sc.chip, isRecent && sc.chipRecent]}
               onPress={() => onSelect(text, cached)}
               activeOpacity={0.75}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               {isRecent && <View style={sc.dot} />}
               <Txt style={[sc.chipTxt, isRecent && sc.chipTxtRecent]} numberOfLines={1}>
@@ -759,9 +768,12 @@ export default function LogScreen() {
         fat:      cached.fat,
         serving:  '1 serving',
       });
-      inputRef.current?.blur();
+      // Defer the blur so React commits setQuery first; without this, on
+      // Android the input occasionally renders empty.
+      requestAnimationFrame(() => inputRef.current?.blur());
     } else {
-      inputRef.current?.focus();
+      // Same — focus AFTER setQuery is committed so the input shows the text.
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, []);
 

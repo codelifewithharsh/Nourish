@@ -112,7 +112,7 @@ export function ProProvider({ children }: { children: ReactNode }) {
     try {
       return await invokeAI<T>(name, body);
     } catch (err) {
-      if (err instanceof AIError && err.code === 'rate_limited') {
+      if (err instanceof AIError && (err.code === 'rate_limited' || err.code === 'upgrade_required')) {
         setRateLimit(err.message || "You've used this a lot today — try again tomorrow.");
       }
       throw err;

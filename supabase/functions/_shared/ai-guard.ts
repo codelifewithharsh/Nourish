@@ -30,30 +30,43 @@ export type AiAction =
   | "nutrition";
 
 interface ActionMeta {
-  configKey:        string;   // app_config row to read the daily limit from
-  defaultLimit:     number;   // fallback if config missing
-  rateLimitMessage: string;   // human-friendly message shown to user on cap
+  // app_config row read for Pro members (existing keys preserved for back-compat)
+  proConfigKey:      string;
+  proDefaultLimit:   number;
+  // app_config row read for non-Pro members. Much tighter limits — the point
+  // of toggling is_pro=false is to throttle suspected abuse.
+  freeConfigKey:     string;
+  freeDefaultLimit:  number;
+  rateLimitMessage:  string;
 }
 
 const ACTION_META: Record<AiAction, ActionMeta> = {
   meal_plan: {
-    configKey:        "limit_meal_plan",
-    defaultLimit:     3,
+    proConfigKey:     "limit_meal_plan",
+    proDefaultLimit:  3,
+    freeConfigKey:    "limit_meal_plan_free",
+    freeDefaultLimit: 0,    // non-Pro can't regenerate plans
     rateLimitMessage: "Your plan is already looking great! You can regenerate again tomorrow.",
   },
   recipe: {
-    configKey:        "limit_recipe",
-    defaultLimit:     8,
+    proConfigKey:     "limit_recipe",
+    proDefaultLimit:  8,
+    freeConfigKey:    "limit_recipe_free",
+    freeDefaultLimit: 2,
     rateLimitMessage: "You've explored a lot of recipes today! More flavours await tomorrow.",
   },
   swap: {
-    configKey:        "limit_swap",
-    defaultLimit:     5,
+    proConfigKey:     "limit_swap",
+    proDefaultLimit:  5,
+    freeConfigKey:    "limit_swap_free",
+    freeDefaultLimit: 1,
     rateLimitMessage: "You've swapped quite a few meals today! Fresh ideas come back tomorrow.",
   },
   nutrition: {
-    configKey:        "limit_nutrition",
-    defaultLimit:     20,
+    proConfigKey:     "limit_nutrition",
+    proDefaultLimit:  20,
+    freeConfigKey:    "limit_nutrition_free",
+    freeDefaultLimit: 3,
     rateLimitMessage: "You've logged a lot today! AI lookups reset tomorrow morning.",
   },
 };
@@ -135,11 +148,23 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
     return { ok: false, response: json({ error: "Email not verified" }, 403) };
   }
 
+  // Look up Pro status — non-Pro users get a tighter limit. Default to Pro
+  // on read failure so we never accidentally throttle a real user.
+  const proRes = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isPro = proRes.error ? true : !!(proRes.data as { is_pro?: boolean } | null)?.is_pro;
+
+  const configKey    = isPro ? meta.proConfigKey    : meta.freeConfigKey;
+  const defaultLimit = isPro ? meta.proDefaultLimit : meta.freeDefaultLimit;
+
   // Live limit from app_config, with a safe fallback.
-  let dailyLimit = meta.defaultLimit;
+  let dailyLimit = defaultLimit;
   const cfg = await supabase.rpc("get_config_int", {
-    p_key:     meta.configKey,
-    p_default: meta.defaultLimit,
+    p_key:     configKey,
+    p_default: defaultLimit,
   });
   if (!cfg.error && typeof cfg.data === "number") {
     dailyLimit = cfg.data;
@@ -158,6 +183,18 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
   }
   if (rateRpc.data === false) {
     await logRateLimited(admin ?? supabase, user.id, action);
+    // Non-Pro users get a different message + code so the client can show
+    // an "Upgrade to Pro" nudge instead of the friendly "come back tomorrow".
+    if (!isPro) {
+      return {
+        ok: false,
+        response: json({
+          error:  "You've hit today's free limit. Upgrade to Pro for higher daily limits.",
+          code:   "upgrade_required",
+          is_pro: false,
+        }, 429),
+      };
+    }
     return {
       ok: false,
       response: json({

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 
 export type AIErrorCode =
   | 'rate_limited'
+  | 'upgrade_required'
   | 'openai_error'
   | 'unauthorized'
   | 'unknown';

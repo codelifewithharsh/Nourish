@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useRecipe, Ingredient, Step } from '@/features/recipe/useRecipe';
 import { analytics } from '@/lib/analytics';
+import { useAppConfigText } from '@/lib/appConfig';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -51,6 +52,10 @@ export default function RecipeScreen() {
   const { recipe, loading, error, partitioned } = useRecipe(mealName);
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
+  const shareFooter = useAppConfigText(
+    'recipe_share_footer',
+    'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=com.nourish.app',
+  );
 
   // When rate-limit error: hook leaves recipe=null, error=null.
   // ProProvider already showed the toast — just go back silently.
@@ -99,12 +104,13 @@ export default function RecipeScreen() {
       ``,
       recipe.tagline ?? '',
       ``,
-      `Made with Nourish 🌿`,
-      `Eat well. Live better. → https://apps.apple.com/app/nourish`,
+      // Supabase-driven footer — \n is stored as literal "\n" in the text
+      // column, so unescape before joining.
+      shareFooter.replace(/\\n/g, '\n'),
     ];
     analytics.recipeShared({ meal_name: mealName });
     Share.share({ message: lines.filter(Boolean).join('\n') });
-  }, [recipe, calories, protein, carbs, fat, mealName]);
+  }, [recipe, calories, protein, carbs, fat, mealName, shareFooter]);
 
   const openLink = (url?: string | null, platform?: 'instagram' | 'youtube') => {
     if (!url) return;
