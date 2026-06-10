@@ -34,6 +34,13 @@
       "env": {
         "EXPO_PUBLIC_ENV": "production"
       }
+    },
+    "production-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
