@@ -140,7 +140,6 @@ const mm = StyleSheet.create({
 
 export default function HomeScreen() {
   const { data, loading, logMeal, updateWater, refresh, userId } = useHomeData();
-  const [minLoadDone, setMinLoadDone] = useState(false);
   const [swapMeal, setSwapMeal] = useState<Meal | null>(null);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
@@ -220,20 +219,13 @@ export default function HomeScreen() {
     return () => clearInterval(id);
   }, [loading, data?.meals.length, refresh]);
 
-  // Enforce a minimum 1.2 s display of the breathing logo so fast connections
-  // don't cause an imperceptible flash before the home screen appears.
-  useEffect(() => {
-    const t = setTimeout(() => setMinLoadDone(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
-
   // Drop the native splash the moment home has data — keeps users from
   // ever seeing a loading spinner on cold start.
   useEffect(() => {
-    if (!loading && data && minLoadDone) releaseSplash();
-  }, [loading, data, minLoadDone]);
+    if (!loading && data) releaseSplash();
+  }, [loading, data]);
 
-  if (loading || !data || !minLoadDone) {
+  if (loading || !data) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <View style={s.loadingContainer}>

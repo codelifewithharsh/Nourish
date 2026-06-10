@@ -5,7 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  ViewToken,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
@@ -41,17 +42,19 @@ function CascadePicker({ items, selected, onSelect, unit, flex = 1 }: CascadePic
     return closest;
   })();
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0) {
-        const mid = viewableItems[Math.floor(viewableItems.length / 2)];
-        if (mid?.item !== undefined) onSelect(mid.item as number);
-      }
+  // The item in the green highlight band is the one at scrollY / ITEM_HEIGHT.
+  // We listen to scroll-end events (momentum + manual drag end) and read the
+  // scroll position directly. This is reliable; viewable-items logic was
+  // off-by-one because viewable items don't 1:1 map to the highlight band.
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(items.length - 1, idx));
+      const item = items[clamped];
+      if (item !== undefined) onSelect(item);
     },
-    [onSelect],
+    [items, onSelect],
   );
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -68,11 +71,11 @@ function CascadePicker({ items, selected, onSelect, unit, flex = 1 }: CascadePic
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
-        initialScrollIndex={Math.max(0, selectedIndex - 1)}
+        initialScrollIndex={selectedIndex}
         getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
         contentContainerStyle={{ paddingVertical: ITEM_HEIGHT }}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        onScrollEndDrag={onMomentumScrollEnd}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         renderItem={({ item, index }) => {
@@ -107,7 +110,7 @@ function CascadePicker({ items, selected, onSelect, unit, flex = 1 }: CascadePic
               onPress={() => {
                 onSelect(item);
                 const idx = items.indexOf(item);
-                listRef.current?.scrollToIndex({ index: Math.max(0, idx - 1), animated: true });
+                listRef.current?.scrollToIndex({ index: idx, animated: true });
               }}
               activeOpacity={0.7}
             >

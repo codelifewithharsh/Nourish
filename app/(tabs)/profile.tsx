@@ -71,6 +71,14 @@ const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
   very_active:    'Very Active',
 };
 
+// Short label for tight UI slots (e.g. the daily-targets card on profile)
+// where the full label won't fit. Keep these to one short word.
+const ACTIVITY_SHORT: Record<ActivityLevel, string> = {
+  sedentary:      'Light',
+  lightly_active: 'Active',
+  very_active:    'Heavy',
+};
+
 const DIET_LABEL: Record<DietType, string> = {
   pure_veg:    'Pure Veg',
   vegan:       'Vegan',
@@ -716,7 +724,7 @@ export default function YouScreen() {
             </View>
             <View style={s.targetsDiv} />
             <View style={s.targetsItem}>
-              <Txt style={[s.targetsVal, { color: '#E6A817' }]}>{profile?.activity_level ? ACTIVITY_LABEL[profile.activity_level as ActivityLevel].split(' ')[0] : '—'}</Txt>
+              <Txt style={[s.targetsVal, { color: '#E6A817' }]}>{profile?.activity_level ? ACTIVITY_SHORT[profile.activity_level as ActivityLevel] : '—'}</Txt>
               <Txt style={s.targetsLbl}>activity</Txt>
             </View>
           </View>

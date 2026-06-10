@@ -39,7 +39,7 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState(1);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
-  const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>('ft');
   const [targets, setTargets] = useState<NutritionTargets>({ dailyCalories: 2000, dailyProtein: 120 });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -106,21 +106,18 @@ export default function OnboardingScreen() {
       return;
     }
 
-    const weightKg = weightUnit === 'lbs'
-      ? Math.round(data.weightKg * 0.453592 * 10) / 10
-      : data.weightKg;
-    const heightCm = heightUnit === 'ft'
-      ? Math.round(data.heightCm * 2.54 * 10) / 10
-      : data.heightCm;
-
+    // data.weightKg and data.heightCm are always stored in metric internally
+    // (the AboutScreen converts ft/lbs → cm/kg on every picker change), so
+    // we save them as-is. Do NOT convert again — doing so caused the
+    // ft-user bug where 6 ft (183 cm) was written as 548.6.
     const payload = {
       id: user.id,
       email: user.email ?? '',
       name: user.user_metadata?.full_name ?? '',
       goal: data.goal ?? 'stay_healthy',
       age: data.age,
-      weight_kg: weightKg,
-      height_cm: heightCm,
+      weight_kg: data.weightKg,
+      height_cm: data.heightCm,
       activity_level: data.activityLevel ?? 'lightly_active',
       diet_type: data.dietType,
       cuisines: data.cuisines,

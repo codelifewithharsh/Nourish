@@ -18,36 +18,29 @@ const DURATION = 600;
 const ease = Easing.out(Easing.cubic);
 
 export default function Root() {
-  const logoOpacity  = useSharedValue(0);
-  const logoEnter    = useSharedValue(0.85);
+  // Logo starts at full opacity to seamlessly continue from the native splash
+  // (which is just the logo on the same dark green background). Wordmark and
+  // tagline fade in immediately. No "logo entry" animation — the user has
+  // already been looking at the logo for the duration of the native splash.
   const glowOpacity  = useSharedValue(0);
   const wordOpacity  = useSharedValue(0);
   const tagOpacity   = useSharedValue(0);
   const breatheScale = useSharedValue(1);
 
   useEffect(() => {
-    logoOpacity.value = withTiming(1, { duration: DURATION, easing: ease });
-    logoEnter.value   = withTiming(1, { duration: DURATION, easing: ease });
     glowOpacity.value = withTiming(1, { duration: DURATION, easing: ease });
-    wordOpacity.value = withDelay(DURATION,       withTiming(1, { duration: 400, easing: ease }));
-    tagOpacity.value  = withDelay(DURATION + 150, withTiming(1, { duration: 400, easing: ease }));
+    wordOpacity.value = withTiming(1, { duration: 400, easing: ease });
+    tagOpacity.value  = withDelay(150, withTiming(1, { duration: 400, easing: ease }));
 
-    breatheScale.value = withDelay(
-      DURATION + 400,
-      withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1.0,  { duration: 1800, easing: Easing.inOut(Easing.sin) }),
-        ),
-        -1, false,
+    breatheScale.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.0,  { duration: 1800, easing: Easing.inOut(Easing.sin) }),
       ),
+      -1, false,
     );
   }, []);
 
-  const wrapStyle = useAnimatedStyle(() => ({
-    opacity:   logoOpacity.value,
-    transform: [{ scale: logoEnter.value }],
-  }));
   const breatheStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breatheScale.value }],
   }));
@@ -63,13 +56,9 @@ export default function Root() {
 
   useEffect(() => {
     const run = async () => {
-      // Run auth checks and the minimum display timer concurrently so the
-      // animated splash always shows for at least 3.5s from mount
-      // (native splash hides at 1.5s → user sees ~2s of animated splash).
-      const sessionPromise = supabase.auth.getSession();
-      const minDisplay = new Promise<void>(r => setTimeout(r, 2000));
-
-      const { data: { session } } = await sessionPromise;
+      // Route as soon as auth + profile check completes. No artificial
+      // minimum display — the splash exits when the data is ready.
+      const { data: { session } } = await supabase.auth.getSession();
 
       let profileData: { onboarding_completed: boolean } | null = null;
       if (session?.user) {
@@ -81,8 +70,6 @@ export default function Root() {
         profileData = data;
       }
 
-      await minDisplay; // Ensure animated splash plays fully before navigating
-
       if (!session?.user) { router.replace('/(auth)/login'); return; }
       router.replace(profileData?.onboarding_completed ? '/(tabs)' : '/(auth)/onboarding');
     };
@@ -93,13 +80,13 @@ export default function Root() {
     <View style={s.root}>
       <Reanimated.View style={[s.glow, glowStyle]} />
       <View style={s.group}>
-        <Reanimated.View style={[s.logoWrap, wrapStyle]}>
+        <View style={s.logoWrap}>
           <Reanimated.Image
             source={require('@/assets/app_logo/nourish_logo_white.png')}
             style={[s.logo, breatheStyle]}
             resizeMode="contain"
           />
-        </Reanimated.View>
+        </View>
         <Reanimated.View style={wordStyle}>
           <Txt style={s.wordmark}>Nourish</Txt>
         </Reanimated.View>
