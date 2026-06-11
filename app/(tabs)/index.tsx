@@ -29,13 +29,6 @@ import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getStreakTitle(n: number) {
-  if (n >= 30) return '🏆 Health champion';
-  if (n >= 15) return '💪 Unstoppable';
-  if (n >= 8)  return '⚡ Consistent performer';
-  return '🌱 Building momentum';
-}
-
 function getTimeEmoji() {
   const h = new Date().getHours();
   if (h >= 5  && h < 12) return '☀️';
@@ -52,37 +45,6 @@ function getGreeting() {
   return 'Good night';
 }
 
-
-function getStaticNudge(
-  meals: Meal[],
-  loggedTypes: Set<string>,
-  eatenCalories: number,
-  targetCalories: number,
-  eatenProtein: number,
-  targetProtein: number,
-): { emoji: string; message: string } {
-  const h = new Date().getHours();
-  const breakfastLogged = loggedTypes.has('breakfast');
-  const lunchLogged     = loggedTypes.has('lunch');
-  const dinnerLogged    = loggedTypes.has('dinner');
-  const proteinLeft     = targetProtein - eatenProtein;
-  const calLeft         = targetCalories - eatenCalories;
-
-  if (h < 10 && !breakfastLogged) {
-    const breakfast = meals.find((m) => m.type === 'breakfast');
-    return { emoji: '🍳', message: `Start strong — ${breakfast?.name ?? 'breakfast'} gives you ${breakfast?.protein ?? 0}g protein to kickstart your day` };
-  }
-  if (h >= 10 && h < 14 && !lunchLogged) {
-    return { emoji: '💪', message: `You need ${proteinLeft}g more protein today. Don't skip lunch!` };
-  }
-  if (h >= 14 && h < 18 && !dinnerLogged) {
-    return { emoji: '🍽️', message: `${calLeft > 0 ? `${calLeft} kcal remaining` : 'On track'} — plan your dinner to hit your target` };
-  }
-  if (breakfastLogged && lunchLogged && dinnerLogged) {
-    return { emoji: '✅', message: `All meals logged — great discipline today!` };
-  }
-  return { emoji: '🍽️', message: `Log your meals to track your progress toward ${targetCalories} kcal` };
-}
 
 function getInitials(name: string) {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
@@ -147,8 +109,20 @@ export default function HomeScreen() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { mealTimes, enabled: notifsEnabled, setMealTime, setEnabled: setNotifsEnabled } = useMealReminders();
   const [streakShareOpen, setStreakShareOpen] = useState(false);
-  const [nudge, setNudge] = useState<{ emoji: string; message: string } | null>(null);
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
   const milestoneChecked = useRef(false);
+
+  // First-ever home view: show a one-time welcome card explaining the app.
+  useEffect(() => {
+    AsyncStorage.getItem('@nourish/welcome_seen').then((v) => {
+      if (!v) setWelcomeVisible(true);
+    });
+  }, []);
+
+  const dismissWelcome = useCallback(() => {
+    setWelcomeVisible(false);
+    AsyncStorage.setItem('@nourish/welcome_seen', '1');
+  }, []);
 
   useEffect(() => {
     Notifications.getPermissionsAsync().then(({ status }) => {
@@ -156,29 +130,6 @@ export default function HomeScreen() {
       Notifications.getAllScheduledNotificationsAsync().then((n) => setNotifsEnabled(n.length > 0));
     });
   }, []);
-
-  // Fetch AI nudge once per day; fall back to static rules if unavailable
-  useEffect(() => {
-    if (!data) return;
-    const { meals, loggedMealTypes, eatenCalories, targetCalories, eatenProtein, targetProtein } = data;
-    const today = new Date().toISOString().slice(0, 10);
-    const cacheKey = `@nourish/nudge_${today}`;
-
-    AsyncStorage.getItem(cacheKey).then(async (cached) => {
-      if (cached) { setNudge(JSON.parse(cached)); return; }
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('no session');
-        const res = await supabase.functions.invoke('daily-nudge');
-        if (res.error || !res.data?.emoji) throw new Error('bad response');
-        setNudge(res.data);
-        AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
-      } catch {
-        setNudge(getStaticNudge(meals, loggedMealTypes, eatenCalories, targetCalories, eatenProtein, targetProtein));
-      }
-    });
-  }, [!!data]);
 
   // Cross-tab sync: refetch home data when this tab regains focus
   useFocusEffect(
@@ -243,7 +194,6 @@ export default function HomeScreen() {
 
   const nextMeal   = meals.find((m) => !loggedMealTypes.has(m.type));
   const loggedCount = loggedMealTypes.size;
-  const calRem     = targetCalories - eatenCalories;
   const initials   = getInitials(userName);
 
   return (
@@ -265,14 +215,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <View>
               <Txt style={s.greeting}>{getGreeting()}, {userName.split(' ')[0]} {getTimeEmoji()}</Txt>
-              <TouchableOpacity
-                style={s.streakRow}
-                activeOpacity={0.7}
-                onPress={() => setStreakShareOpen(true)}
-              >
-                <Txt style={s.streakIcon}>⚡</Txt>
-                <Txt style={s.streakTxt}>{streak} day{streak !== 1 ? 's' : ''} · {getStreakTitle(streak)}</Txt>
-              </TouchableOpacity>
+              <Txt style={s.subGreeting}>Let's eat well today</Txt>
             </View>
           </View>
           <TouchableOpacity style={s.bellBtn} activeOpacity={0.75} onPress={() => { analytics.notifSettingsOpened(); setNotifSheetOpen(true); }}>
@@ -281,85 +224,38 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Section 1: Calorie Progress + Macros + Water ── */}
-        <View style={s.card20}>
+        {/* ── Welcome (first-time only) ── */}
+        {welcomeVisible && (
+          <View style={s.welcomeCard}>
+            <Txt style={s.welcomeTitle}>👋 Your plan is ready</Txt>
+            <Txt style={s.welcomeBody}>
+              Every day we'll suggest 3 meals tailored to your goal. Just log what you eat — we'll track the rest.
+            </Txt>
+            <TouchableOpacity style={s.welcomeBtn} activeOpacity={0.85} onPress={dismissWelcome}>
+              <Txt style={s.welcomeBtnTxt}>Got it</Txt>
+            </TouchableOpacity>
+          </View>
+        )}
 
+        {/* ── Calories + Macros ── */}
+        <View style={s.card20}>
           <View style={s.row}>
             <Txt style={s.fuelLabel}>🔥 Calories</Txt>
             <Txt style={s.fuelVal}>{eatenCalories.toLocaleString()} / {targetCalories.toLocaleString()} kcal</Txt>
           </View>
 
           <ProgressBar pct={eatenCalories / targetCalories} height={10} />
-          <Txt style={s.calRem}>{calRem > 0 ? `${calRem.toLocaleString()} kcal remaining` : 'Target reached! 🎉'}</Txt>
 
           <View style={s.macroRow}>
             <MacroMini emoji="🥗" label="Carbs"   eaten={eatenCarbs}   target={targetCarbs}   unit="g" />
             <MacroMini emoji="💪" label="Protein" eaten={eatenProtein} target={targetProtein} unit="g" />
             <MacroMini emoji="🫒" label="Fat"     eaten={eatenFat}     target={targetFat}     unit="g" />
           </View>
-
-          <View style={s.divider} />
-
-          <View style={s.waterSection}>
-            {/* Top row: label + count */}
-            <View style={s.waterTopRow}>
-              <View style={s.waterLabelRow}>
-                <Droplets size={14} color="#5B8DB8" strokeWidth={2} />
-                <Txt style={s.waterLabel}>Water</Txt>
-              </View>
-              <Txt style={s.waterCount}>
-                {glasses}<Txt style={s.waterCountOf}> / 10 glasses</Txt>
-              </Txt>
-            </View>
-
-            {/* Glass dots */}
-            <View style={s.dropRow}>
-              {Array.from({ length: 10 }).map((_, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => updateWater(i + 1 === glasses ? glasses - 1 : i + 1)}
-                  activeOpacity={0.65}
-                  hitSlop={6}
-                  style={[s.glassDot, i < glasses && s.glassDotFilled]}
-                >
-                  <GlassWater
-                    size={16}
-                    color={i < glasses ? '#5B8DB8' : '#C8D0D8'}
-                    fill={i < glasses ? '#D6E8F5' : 'transparent'}
-                    strokeWidth={i < glasses ? 2.2 : 1.5}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Water fill bar */}
-            <View style={s.waterBarBg}>
-              <View style={[s.waterBarFill, { width: `${(glasses / 10) * 100}%` as any }]} />
-            </View>
-
-            {/* Motivational hint */}
-            <Txt style={s.waterHint}>
-              {glasses === 0 && 'Tap a glass to log water — your body will thank you'}
-              {glasses > 0 && glasses < 4 && `${10 - glasses} more to go — keep drinking!`}
-              {glasses >= 4 && glasses < 7 && `Halfway there! ${10 - glasses} glasses left`}
-              {glasses >= 7 && glasses < 10 && `Almost there — just ${10 - glasses} more! 💪`}
-              {glasses >= 10 && 'Perfectly hydrated today — amazing! 🎉'}
-            </Txt>
-          </View>
-
         </View>
 
-        {/* ── Section 2: Smart Nudge ── */}
-        {nudge && (
-          <View style={s.nudgeCard}>
-            <Txt style={s.nudgeEmoji}>{nudge.emoji}</Txt>
-            <Txt style={s.nudgeTxt}>{nudge.message}</Txt>
-          </View>
-        )}
-
-        {/* ── Section 3: Next Meal ── */}
+        {/* ── Hero: Next Meal ── */}
         {meals.length === 0 ? (
-          <View style={s.card16}>
+          <View style={s.heroCard}>
             <View style={s.row}>
               <Txt style={s.mealName}>🍳 Your plan is cooking…</Txt>
               <ActivityIndicator size="small" color={Colors.accent} />
@@ -369,7 +265,7 @@ export default function HomeScreen() {
         ) : nextMeal ? (
           <View>
             <TouchableOpacity
-              style={s.card16}
+              style={s.heroCard}
               activeOpacity={0.92}
               onPress={() => router.push({
                 pathname: '/recipe/[id]',
@@ -384,10 +280,13 @@ export default function HomeScreen() {
               })}
             >
               <View style={s.row}>
-                <View style={s.mealPill}>
-                  <Txt style={s.mealPillTxt}>{nextMeal.type.charAt(0).toUpperCase() + nextMeal.type.slice(1)}</Txt>
+                <View style={s.upNextRow}>
+                  <Txt style={s.upNextLabel}>Up next</Txt>
+                  <Txt style={s.upNextDot}>·</Txt>
+                  <View style={s.mealPill}>
+                    <Txt style={s.mealPillTxt}>{nextMeal.type.charAt(0).toUpperCase() + nextMeal.type.slice(1)}</Txt>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }} />
                 <Txt style={s.mealRecipeHint}>View recipe →</Txt>
               </View>
 
@@ -413,7 +312,7 @@ export default function HomeScreen() {
                   return <View key={m.type} style={[s.dot10, dotStyle]} />;
                 })}
               </View>
-              <Txt style={s.mealProgTxt}>{loggedCount} of {meals.length} meals done</Txt>
+              <Txt style={s.mealProgTxt}>{loggedCount} of {meals.length} meals done today</Txt>
             </View>
           </View>
         ) : (
@@ -422,18 +321,44 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Section 4: Streak Card ── */}
-        <StreakCard streak={streak} weekLoggedDays={weekLoggedDays} />
+        {/* ── Water (own card) ── */}
+        <View style={s.waterCard}>
+          <View style={s.waterTopRow}>
+            <View style={s.waterLabelRow}>
+              <Droplets size={16} color="#5B8DB8" strokeWidth={2} />
+              <Txt style={s.waterLabel}>Water</Txt>
+            </View>
+            <Txt style={s.waterCount}>
+              {glasses}<Txt style={s.waterCountOf}> / 10 glasses</Txt>
+            </Txt>
+          </View>
 
-        {/* ── Section 5: Daily Insight ── */}
-        <View style={s.card16}>
-          <Txt style={s.insightLabel}>✨ Daily insight</Txt>
-          <Txt style={s.insightBody}>
-            {eatenProtein >= targetProtein
-              ? `You've hit your protein target today — great work! Consistency builds real results.`
-              : `You need ${targetProtein - eatenProtein}g more protein today. Add a high-protein meal to stay on track.`}
-          </Txt>
+          <View style={s.dropRow}>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => updateWater(i + 1 === glasses ? glasses - 1 : i + 1)}
+                activeOpacity={0.65}
+                hitSlop={6}
+                style={[s.glassDot, i < glasses && s.glassDotFilled]}
+              >
+                <GlassWater
+                  size={16}
+                  color={i < glasses ? '#5B8DB8' : '#C8D0D8'}
+                  fill={i < glasses ? '#D6E8F5' : 'transparent'}
+                  strokeWidth={i < glasses ? 2.2 : 1.5}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {glasses === 0 && (
+            <Txt style={s.waterHint}>Tap a glass to log water</Txt>
+          )}
         </View>
+
+        {/* ── Streak Card ── */}
+        <StreakCard streak={streak} weekLoggedDays={weekLoggedDays} />
 
       </ScrollView>
 
@@ -510,41 +435,46 @@ const s = StyleSheet.create({
   avatar:    { width: 48, height: 48, borderRadius: 14, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarImg: { width: 48, height: 48, borderRadius: 14 },
   avatarTxt: { fontSize: 16, fontWeight: '700', color: Colors.surface, letterSpacing: 0.5, lineHeight: 22 },
-  greeting:  { fontSize: 18, fontWeight: '700', color: Colors.primary, lineHeight: 24 },
-  streakRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
-  streakIcon: { fontSize: 11, lineHeight: 16 },
-  streakTxt: { fontSize: 12, color: Colors.secondary, lineHeight: 16, marginTop: 0 },
+  greeting:    { fontSize: 18, fontWeight: '700', color: Colors.primary, lineHeight: 24 },
+  subGreeting: { fontSize: 12, color: Colors.secondary, lineHeight: 16, marginTop: 2 },
   bellBtn:   { width: 40, height: 40, borderRadius: BorderRadius.full, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
   bellDot:   { position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: '#E05C2A' },
 
   card20: { backgroundColor: Colors.surface, borderRadius: 20, padding: 20, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   card16: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
 
+  // Hero meal card: bigger radius, slightly more padding, soft accent border
+  heroCard: { backgroundColor: Colors.surface, borderRadius: 20, padding: 18, gap: 10, borderWidth: 1, borderColor: Colors.accentLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 3 },
+
+  // Welcome (first-time) card
+  welcomeCard:   { backgroundColor: Colors.accentLight, borderRadius: 16, padding: 16, gap: 8 },
+  welcomeTitle:  { fontSize: 15, fontWeight: '800', color: Colors.accent, lineHeight: 20 },
+  welcomeBody:   { fontSize: 13, color: Colors.primary, lineHeight: 19 },
+  welcomeBtn:    { alignSelf: 'flex-start', backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginTop: 4 },
+  welcomeBtnTxt: { fontSize: 13, fontWeight: '700', color: Colors.surface, lineHeight: 16 },
+
   row:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  divider: { height: 1, backgroundColor: Colors.accentLight },
 
   fuelLabel: { fontSize: 14, color: Colors.secondary, lineHeight: 20 },
   fuelVal:   { fontSize: 14, fontWeight: '700', color: Colors.primary, lineHeight: 20 },
-  calRem:    { fontSize: 12, color: Colors.secondary, lineHeight: 16, textAlign: 'right', marginTop: -4 },
-  macroRow:  { flexDirection: 'row', gap: 10 },
 
-  waterSection:   { gap: 8 },
+  macroRow: { flexDirection: 'row', gap: 10 },
+
+  // Water (own card)
+  waterCard:      { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   waterTopRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  waterLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  waterLabel:     { fontSize: 13, fontWeight: '600', color: Colors.secondary, lineHeight: 18 },
+  waterLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  waterLabel:     { fontSize: 14, fontWeight: '600', color: Colors.primary, lineHeight: 18 },
   waterCount:     { fontSize: 15, fontWeight: '800', color: '#5B8DB8', lineHeight: 20 },
   waterCountOf:   { fontSize: 12, fontWeight: '500', color: Colors.secondary },
   dropRow:        { flexDirection: 'row', gap: 5, alignItems: 'center' },
   glassDot:       { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
   glassDotFilled: { backgroundColor: '#EAF4FB' },
-  waterBarBg:     { height: 4, backgroundColor: Colors.border, borderRadius: 999, overflow: 'hidden' },
-  waterBarFill:   { height: 4, backgroundColor: '#5B8DB8', borderRadius: 999 },
   waterHint:      { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
 
-  nudgeCard:  { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderLeftWidth: 4, borderLeftColor: Colors.accent, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  nudgeEmoji: { fontSize: 24, lineHeight: 30 },
-  nudgeTxt:   { flex: 1, fontSize: 14, color: Colors.primary, lineHeight: 20 },
-
+  upNextRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  upNextLabel: { fontSize: 11, fontWeight: '700', color: Colors.secondary, letterSpacing: 0.5, textTransform: 'uppercase', lineHeight: 14 },
+  upNextDot:   { fontSize: 12, color: Colors.secondary, lineHeight: 14 },
   mealPill:    { backgroundColor: Colors.accentLight, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
   mealPillTxt: { fontSize: 12, fontWeight: '600', color: Colors.accent, lineHeight: 16 },
   mealRecipeHint: { fontSize: 11, fontWeight: '700', color: Colors.accent, letterSpacing: 0.2, lineHeight: 14 },
@@ -566,8 +496,6 @@ const s = StyleSheet.create({
   allDoneTxt:  { fontSize: 14, fontWeight: '600', color: Colors.accent, lineHeight: 20 },
 
 
-  insightLabel: { fontSize: 13, color: Colors.secondary, lineHeight: 18 },
-  insightBody:  { fontSize: 14, color: Colors.primary, lineHeight: 21 },
 });
 
 // ─── Streak Card ──────────────────────────────────────────────────────────────

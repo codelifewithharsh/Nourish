@@ -174,10 +174,8 @@ export default function OnboardingScreen() {
     }));
   }, []);
 
-  const showSkip = step < 5;
-
   return (
-    <OnboardingLayout step={step} showSkip={showSkip} onBack={goBack} onSkip={() => goNext()}>
+    <OnboardingLayout step={step} onBack={goBack}>
       <Animated.View style={[styles.slideContainer, animatedStyle]}>
         {step === 1 && (
           <GoalScreen

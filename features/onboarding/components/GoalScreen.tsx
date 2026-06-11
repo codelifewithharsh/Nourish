@@ -126,8 +126,6 @@ export function GoalScreen({ selected, onSelect, onContinue }: GoalScreenProps) 
         <View style={styles.factRow}>
           <RotatingFactChip />
         </View>
-
-        <Txt style={styles.socialProof}>🌱 Joined by 12,400 Indian vegetarians</Txt>
       </View>
     </View>
   );
@@ -226,11 +224,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.accent,
     textAlign: 'center',
-  },
-  socialProof: {
-    fontSize: 12,
-    color: Colors.secondary,
-    textAlign: 'center',
-    marginTop: 10,
   },
 });
