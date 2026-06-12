@@ -394,7 +394,7 @@ export default function YouScreen() {
   const { isPro } = useProMember();
   const inviteCopy = useAppConfigText(
     'invite_copy',
-    "I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://play.google.com/store/apps/details?id=com.nourish.app",
+    "I've been eating better with Nourish — an AI nutritionist that plans Indian meals around your goals 🌿\n\nJoin me → https://play.google.com/store/apps/details?id=in.nourish.app",
   );
 
   const sparklePulse = useRef(new Animated.Value(1)).current;
@@ -1103,7 +1103,7 @@ export default function YouScreen() {
                 if (await StoreReview.hasAction()) {
                   await StoreReview.requestReview();
                 } else {
-                  Linking.openURL('https://play.google.com/store/apps/details?id=com.nourish.app').catch(() => {});
+                  Linking.openURL('https://play.google.com/store/apps/details?id=in.nourish.app').catch(() => {});
                 }
               }}
             >

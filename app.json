@@ -24,7 +24,7 @@
         "color": "#1A3A2A"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.nourish.app",
+      "package": "in.nourish.app",
       "versionCode": 1
     },
     "web": {

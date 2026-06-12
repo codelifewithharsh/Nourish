@@ -54,7 +54,7 @@ export default function RecipeScreen() {
   const [logged, setLogged] = useState(false);
   const shareFooter = useAppConfigText(
     'recipe_share_footer',
-    'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=com.nourish.app',
+    'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=in.nourish.app',
   );
 
   // When rate-limit error: hook leaves recipe=null, error=null.
