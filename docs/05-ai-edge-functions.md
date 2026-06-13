@@ -1,6 +1,6 @@
 # 05 — AI & Edge Functions
 
-*Last updated: 2026-06-13.*
+*Last updated: 2026-06-13. Refreshed with exact prompts, formulas, validation details, and cost notes.*
 
 This doc explains how the server side of every AI feature works: the Deno edge functions, the shared `guard()`, the OpenAI integration, and how to add a new AI action safely.
 
@@ -122,7 +122,7 @@ Each action has a human-voiced message in `ACTION_META[action].rateLimitMessage`
 
 ## 4. The OpenAI call
 
-We use `gpt-4o-mini` for everything. It's cheap (~$0.15/M input, $0.60/M output tokens) and good enough for structured outputs.
+We use `gpt-4o-mini` for everything. It's cheap (~$0.15/M input, $0.60/M output tokens) and structured outputs are what matters here — not reasoning depth. Tasks are schema-bound with short outputs; gpt-4o would cost ~15× more with no accuracy gain.
 
 Common pattern:
 
@@ -148,26 +148,171 @@ const content = json.choices[0].message.content;
 const parsed = JSON.parse(content);
 ```
 
-Why `response_format: { type: "json_object" }`?
-The model is forced to return valid JSON. Combined with a strict schema in the system prompt, parsing rarely fails.
+`response_format: { type: "json_object" }` forces valid JSON. Combined with a strict schema in the system prompt, parsing rarely fails.
 
 **System vs user message split.** Every function uses two messages:
 - `system`: who the AI is — "You are a professional Indian dietitian…". Stable across all calls of the same action.
 - `user`: the actual task — profile values, the dish name, the query.
 
-We didn't always do this. The original prompts crammed everything into one user message ("You are an Indian dietitian. Generate a 7-day plan for…"). Switching to system/user split improves instruction-following on `gpt-4o-mini` because the role boundary is what the model is trained to attend to. Same number of input tokens, measurably more consistent output.
+The original prompts crammed everything into one user message. Switching to system/user split improves instruction-following on `gpt-4o-mini` because the role boundary is what the model is trained to attend to. Same number of input tokens, measurably more consistent output.
 
-**Temperatures by action:**
-- `meal_plan`: `0.7` — mild creativity for variety across days
-- `recipe`: `0.7` — same
-- `swap`: `0.7` — was `0.8`, dropped because high temperature caused occasional nonsense macros (e.g. 8g protein for a paneer dish)
-- `nutrition`: `0.3` — factual lookup, low temperature for consistency
+### 4.1 Exact system prompts
 
-The recipe function does **not** ask the AI to invent Instagram/YouTube URLs or creator handles anymore. Those used to cost ~50 tokens per call. We build deterministic search URLs server-side instead — they actually work (real YouTube search results) and cost nothing.
+| Function | System prompt |
+|---|---|
+| `generate-meal-plan` | `"You are a professional Indian dietitian. You design realistic 7-day home-cooked meal plans that match the user's body, goal, and pantry. You always return valid JSON only — no prose, no markdown."` |
+| `get-recipe` | `"You are a warm Indian home-cook and dietitian. You write authentic Indian recipe cards with household measurements and short clear steps. You always return valid JSON only — no prose."` |
+| `lookup-nutrition` | `"You are a precise Indian nutrition expert. You estimate calories and macros for Indian dishes using standard recipe values. You always return valid JSON only — no prose, no markdown."` |
+| `swap-meal` | `"You are a professional Indian dietitian. You suggest realistic single-meal swaps that match the user's diet, cuisine, and pantry. You always return valid JSON only — no prose."` |
+| `daily-nudge` | No system message — everything is in one user message (see §4.3). |
+
+### 4.2 User prompt structures
+
+**`generate-meal-plan`** — profile values are injected, schema is explicit:
+```
+Generate a 7-day meal plan for this person:
+- Goal: fat_loss
+- Daily calorie target: 1600 kcal
+- Daily protein target: 72g
+- Diet type: pure_veg
+- Preferred cuisines: north_indian
+- No eggs, no meat, no fish
+
+Rules:
+- 3 meals per day: breakfast, lunch, dinner
+- Total daily calories must be within 100 kcal of the target
+- Total daily protein must be within 10g of the target
+[If pantry set: "Pantry on hand: dal, paneer, tomato — bias toward these ingredients"]
+
+Respond ONLY with valid JSON:
+{
+  "days": [{
+    "day": 1,
+    "meals": [
+      { "type": "breakfast", "name": "...", "calories": 320, "protein": 14, "carbs": 48, "fat": 8 },
+      { "type": "lunch",     "name": "...", "calories": 480, "protein": 22, "carbs": 60, "fat": 12 },
+      { "type": "dinner",    "name": "...", "calories": 500, "protein": 24, "carbs": 55, "fat": 14 }
+    ],
+    "total_calories": 1300,
+    "total_protein": 60
+  }]
+}
+```
+
+**`lookup-nutrition`** — minimal, tight:
+```
+The user ate: "2 rotis with dal"
+Return ONLY valid JSON:
+{ "name": "Roti with Dal", "calories": 340, "protein": 12, "carbs": 58, "fat": 6, "serving": "2 rotis + 1 bowl dal" }
+Rules: use standard Indian recipe values. All numbers must be integers. serving should be brief.
+```
+
+**`swap-meal`** — includes mood injection:
+```
+Suggest ONE alternative lunch meal.
+Current meal: "Dal Tadka with Rice"
+- Diet: pure_veg · Cuisines: north_indian
+- Calorie target: ~533 kcal  (daily_calories / 3)
+- Protein target: ~24g       (daily_protein / 3)
+- Mood: "Make it lighter — lower calories, easy to digest."
+- Must be different from "Dal Tadka with Rice". Must be a real Indian recipe. All numbers must be integers.
+
+{ "name": "...", "calories": 000, "protein": 00, "carbs": 00, "fat": 00, "reason": "one sentence why" }
+```
+
+Mood strings: `light` → "lower calories, easy to digest" / `hearty` → "higher protein and calories" / `quick` → "simple ingredients, under 20 minutes" / default → "balanced".
+
+**`get-recipe`** — schema-heavy to prevent freeform prose:
+```
+Write a complete recipe card for "Paneer Bhurji".
+- tagline ≤ 12 words, reads like a friend describing the dish
+- chef_tip: one specific, non-obvious insight (technique, timing, ratio)
+- hero_emoji: ONE single food emoji
+- difficulty: easy | medium | hard
+- 4–7 steps, each step a single action
+
+{ "name": "...", "tagline": "...", "hero_emoji": "🍛", "prep_minutes": 20, "difficulty": "easy",
+  "serves": 1, "ingredients": [{ "name": "paneer", "quantity": "100", "unit": "g" }],
+  "steps": [{ "n": 1, "title": "Prep", "body": "Dice onion finely.", "minutes": 3 }],
+  "chef_tip": "..." }
+```
+
+**`daily-nudge`** — one user message, capped at 80 tokens:
+```
+You are a warm, concise AI nutrition coach inside the Nourish app.
+User: name=Harsh, goal=fat_loss, diet=pure_veg, target=1600kcal/72g protein.
+Today so far: eaten 480kcal, 18g protein. Logged: breakfast. Local hour: 13 UTC.
+Write ONE short nudge (max 18 words). Be specific to their data, warm, practical.
+Return ONLY valid JSON: {"emoji":"<single emoji>","message":"<nudge text>"}
+```
+
+### 4.3 Temperatures and token limits
+
+| Action | Temperature | Max tokens | Rationale |
+|---|---|---|---|
+| `meal_plan` | 0.7 | default | Mild creativity for day-to-day variety |
+| `recipe` | 0.7 | default | Same |
+| `swap` | 0.7 | default | Was 0.8 — see §4.4 |
+| `nutrition` | 0.3 | default | Factual lookup, low temp for consistency |
+| `daily-nudge` | 0.8 | **80** | Short creative text; 80 tokens is ~18 words |
+
+### 4.4 What failed: temperature 0.8 on swap
+
+At `temperature: 0.8`, `swap-meal` occasionally produced nutritionally incoherent results — e.g. a "light" swap returning 800 kcal or 8g protein for a paneer dish. The model was treating macro numbers as creative elements rather than constraints. Lowering to 0.7 and adding `"All numbers must be integers"` to the prompt fixed it. The integer constraint turned out to matter independently — floats like `22.5g protein` were common at 0.8 and the frontend was rounding them inconsistently. The rule now appears in three of the five prompts.
+
+### 4.5 What was removed: AI-generated URLs
+
+Early versions of `get-recipe` asked the model to include Instagram handles and YouTube video links. It invented URLs that 404'd. The field was removed from the prompt entirely. Discovery URLs are now built deterministically server-side from the slugified meal name:
+
+```ts
+instagram_url = `https://www.instagram.com/explore/tags/${slug}/`;
+youtube_url   = `https://www.youtube.com/results?search_query=${encodeURIComponent(meal_name + ' recipe')}`;
+```
+
+These actually work, cost zero tokens, and never hallucinate.
+
+### 4.6 Calorie and protein targets are never computed by AI
+
+The AI is given hard numerical constraints, not asked to derive them. Targets are computed deterministically in `features/onboarding/utils/tdee.ts` before the prompt is built:
+
+- **BMR** — Mifflin-St Jeor, gender-neutral average: `((10W + 6.25H − 5A + 5) + (10W + 6.25H − 5A − 161)) / 2`
+- **TDEE** — BMR × activity multiplier (1.2 / 1.375 / 1.725)
+- **Calorie target** — TDEE − 400 (fat loss), TDEE + 250 (muscle gain), TDEE (maintenance), floor 1200
+- **Protein** — IBW (Devine formula, gender-neutral average) adjusted for obesity: `IBW + 0.25 × (actual − IBW)` if over IBW, then × multiplier (1.0 / 1.4 / 1.8 by goal, +0.2 for age ≥ 55), floor 40g
+
+Letting the AI compute TDEE would introduce hallucinated-but-plausible numbers. Deterministic math feeds the prompt as a constraint: *"Total daily calories must be within 100 kcal of 1600."*
+
+### 4.7 Validation
+
+All functions use `response_format: { type: "json_object" }`. There is no runtime schema library (no Zod/AJV) — validation is prompt-level plus minimal structural checks:
+
+| Function | Check | On failure |
+|---|---|---|
+| `generate-meal-plan` | `parsed.days?.length === 7` | Serve hardcoded FALLBACK_PLAN silently |
+| `daily-nudge` | `parsed.emoji && parsed.message` | Throw → 502; client shows static copy |
+| `lookup-nutrition` | Numbers coerced: `Math.round(nutrition.calories ?? 0)` | Defaults to 0, not a crash |
+| `get-recipe` / `swap-meal` | Field extraction with nullish defaults | Partial results surface rather than failing |
+
+The meal plan FALLBACK_PLAN is a hardcoded 7-day vegetarian plan (~1300 kcal/day, 42–60g protein) used when OpenAI fails or returns a malformed response. It's the only function with a graceful content fallback; others return 502.
 
 ---
 
-## 5. Caching — the big cost saver
+## 5. Cost tracking & caching
+
+### Cost tracking
+
+Every AI call writes to `ai_usage_log`. Tokens come from the OpenAI response (`usage.prompt_tokens` / `usage.completion_tokens`); cost is computed in `_shared/ai-guard.ts`:
+
+```ts
+// micro-cents (1/1,000,000 USD)
+function costMicrosGpt4oMini(tokens_in?: number, tokens_out?: number): bigint {
+  return BigInt(tokens_in ?? 0) * 15n + BigInt(tokens_out ?? 0) * 60n;
+}
+```
+
+Cache hits write `status: "cache_hit"` and `cost_micros: 0`. This makes it trivial to see actual vs avoided spend in `ai_usage_log`.
+
+### Caching — the big cost saver
 
 ### Meal plan cache (`meal_plan_cache`)
 
