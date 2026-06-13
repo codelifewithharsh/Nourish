@@ -1,12 +1,12 @@
 # 01 — Overview
 
-*Last updated: 2026-06-10.*
+*Last updated: 2026-06-13.*
 
 ## What Nourish is
 
 Nourish is a mobile app (iOS + Android, built with Expo) that acts as a personalised AI nutritionist for Indian eaters. Tagline: **"Eat well. Live better."**
 
-The pitch: tell us your body and goals, get a 7-day meal plan you'll actually cook, log what you ate by talking to AI, and adjust on the fly.
+The pitch: tell us your body and goals, get a 6-day meal plan you'll actually cook, log what you ate by talking to AI, and adjust on the fly.
 
 Three things make it different from MyFitnessPal / HealthifyMe:
 
@@ -25,7 +25,7 @@ Login (Google OAuth)         ← or continue as guest
    ↓
 Onboarding (goal, body, diet preferences, restrictions)
    ↓
-First 7-day plan auto-generates
+First 6-day plan auto-generates
    ↓
                   ┌──────────────────┐
                   │   Tab navigator  │
@@ -38,17 +38,17 @@ After onboarding, the app is four tabs and one detail screen:
 | Tab | Purpose | Main AI feature |
 |---|---|---|
 | **Home** | Today's snapshot — what to eat next, streak, water, daily nudge | AI daily nudge (GPT-4o-mini, cached per user/day) |
-| **Meals** | 7-day plan, day-by-day, grocery list export | Per-meal swap → AI suggests an alternative |
+| **Meals** | 6-day plan, day-by-day, grocery list export | Per-meal swap → AI suggests an alternative |
 | **Log** | Track what you actually ate | AI nutrition lookup ("2 rotis and dal" → macros) |
-| **You** | Profile, kitchen ingredients, notification times, regenerate plan | Regenerate full 7-day plan |
+| **You** | Profile, kitchen ingredients, notification times, regenerate plan | Regenerate full 6-day plan |
 | **Recipe screen** | Tap a meal → see ingredients + step-by-step method | AI generates full recipe |
 
 ## Key concepts you'll meet in the code
 
 - **Profile** — one row per user in `profiles` table. Stores body stats, goal, diet preferences, calorie/protein targets, kitchen ingredients, meal notification times, etc.
-- **Meal plan** — one row per user in `meal_plans`. Stores a JSONB blob with 7 days × 3–4 meals each. Regenerated wholesale, never edited piecemeal.
+- **Meal plan** — one row per user in `meal_plans`. Stores a JSONB blob with 6 days × 3–4 meals each. Regenerated wholesale, never edited piecemeal.
 - **Daily logs** — one row per meal logged, in `daily_logs`.
-- **Pro membership** — every signup is auto-Pro (`is_pro=true`, `is_early_bird=true`) — see [doc 06](./06-pro-membership.md). AI features are gated by silent per-user-per-day rate limits (3 plans, 8 recipes, 5 swaps, 20 nutrition lookups). Limits are tunable from the Supabase dashboard via `app_config` — no redeploy.
+- **Pro membership** — Pro users get unlimited AI; free users are gated by silent per-user-per-day rate limits via `ai-guard.ts` (Pro: 3 plans / 8 recipes / 5 swaps / 20 lookups; Free: 1 / 2 / 1 / 3). Limits are tunable from the Supabase dashboard via `app_config` — no redeploy. See [doc 06](./06-pro-membership.md).
 - **Edge functions** — Deno serverless functions on Supabase that wrap OpenAI calls. The client never touches OpenAI directly; the API key stays server-side.
 - **Streak** — consecutive days with at least one logged meal. Shown on Home and the You tab. Milestone days (3, 7, 14, 30) auto-trigger a share sheet.
 

@@ -1,6 +1,6 @@
 # 11 — Interview Prep / Understanding Nourish End-to-End
 
-*Last updated: 2026-06-10.*
+*Last updated: 2026-06-13.*
 
 This doc is different from the others. The earlier docs describe *what the code does*. This one is built so you (or anyone) can **explain Nourish out loud in an interview** — covering the architecture, the decisions, the trade-offs, and the why behind every layer.
 
@@ -27,9 +27,9 @@ Each section answers a question an interviewer might ask. Read the answer, then 
 
 ## 1. The 60-second pitch
 
-Nourish is a React Native app built with Expo SDK 56 that acts as a personalised AI nutritionist for Indian eaters. You complete a 5-step onboarding (goal, body stats, diet preferences, restrictions, activity), and the app generates a 7-day Indian meal plan tailored to your calorie and protein targets. You can swap any meal for an alternative ("lighter", "hearty", "quick"), open any meal for a full recipe with ingredients and steps, and log what you actually ate using AI ("2 rotis and dal" → calories computed).
+Nourish is a React Native app built with Expo SDK 56 that acts as a personalised AI nutritionist for Indian eaters. You complete a 5-step onboarding (goal, body stats, diet preferences, restrictions, activity), and the app generates a 6-day Indian meal plan tailored to your calorie and protein targets (computed via Mifflin-St Jeor BMR and Ideal Body Weight formulas). You can swap any meal for an alternative ("lighter", "hearty", "quick"), open any meal for a full recipe with ingredients and steps, and log what you actually ate using AI ("2 rotis and dal" → calories computed).
 
-The backend is **Supabase** (Postgres + Auth + Edge Functions on Deno). The AI is **OpenAI's gpt-4o-mini**, called only from Deno edge functions — the API key never leaves the server. Cost is controlled through three layers: (1) a global recipe cache shared across all users, (2) profile-bucketed meal-plan caching that lets users with similar bodies share generated plans, and (3) silent per-user-per-day rate limits read live from a config table so they can be tuned without a redeploy.
+The backend is **Supabase** (Postgres + Auth + Edge Functions on Deno). The AI is **OpenAI's gpt-4o-mini**, called only from four Deno edge functions — the API key never leaves the server. Cost is controlled through three layers: (1) a global recipe cache shared across all users, (2) profile-bucketed meal-plan caching that lets users with similar bodies share generated plans (cut OpenAI spend ~60%+), and (3) silent per-tier per-day rate limits read live from `app_config` so they can be tuned without a redeploy.
 
 There's no custom backend server. Security is enforced through Postgres Row Level Security policies — the client (with its public anon key) can only read or write rows that belong to its own user.
 
@@ -323,10 +323,10 @@ Client → useAI() → supabase.functions.invoke('<name>')
 
 | Function | Action | Daily limit (configurable) | Cache? |
 |---|---|---|---|
-| `generate-meal-plan` | meal_plan | 3 | yes — `meal_plan_cache` keyed by profile shape + pantry |
-| `get-recipe` | recipe | 8 | yes — `recipes` table keyed by slugified meal name (shared across all users) |
-| `swap-meal` | swap | 5 | no — creativity is the point |
-| `lookup-nutrition` | nutrition | 20 | yes — `nutrition_cache` keyed by normalised query |
+| `generate-meal-plan` | meal_plan | Pro 3 / Free 1 | yes — `meal_plan_cache` keyed by profile shape + pantry |
+| `get-recipe` | recipe | Pro 8 / Free 2 | yes — `recipes` table keyed by slugified meal name (shared across all users) |
+| `swap-meal` | swap | Pro 5 / Free 1 | no — creativity is the point |
+| `lookup-nutrition` | nutrition | Pro 20 / Free 3 | yes — `nutrition_cache` keyed by normalised query |
 
 Plus a fifth `daily-nudge` function that's free (no rate limit), cached per user per day.
 
@@ -341,9 +341,10 @@ if (!g.ok) return g.response;  // 401 / 429 / 403 short-circuit
 
 `guard()` does, in order:
 1. **Auth check** — reads the JWT from the `Authorization` header, calls `auth.getUser()`. Refuses unverified emails.
-2. **Read live rate limit** — calls `get_config_int(meta.configKey, meta.defaultLimit)` from Postgres. The default is a fallback if the row is missing.
-3. **Increment counter atomically** — calls `check_and_increment_rate_limit(user_id, action, daily_limit)`. Returns `false` if over limit.
-4. **Return guards** — `{ ok: true, supabase, admin, markCacheHit, start, json }`.
+2. **Look up `is_pro`** on the user's profile row. On read failure, fails open as Pro (safety default — don't lock paying users out on a transient DB blip).
+3. **Read live rate limit** — calls `get_config_int(meta.proConfigKey or meta.freeConfigKey, meta.defaultLimit)` from Postgres. The default is a fallback if the row is missing.
+4. **Increment counter atomically** — calls `check_and_increment_rate_limit(user_id, action, daily_limit)`. Returns `false` if over limit.
+5. **Return guards** — `{ ok: true, supabase, admin, markCacheHit, start, json }`.
 
 ### Why a shared guard instead of copy-pasting
 
@@ -425,27 +426,24 @@ With cache hits, the amortised cost per user per month is well under ₹1 at cur
 
 ### The model
 
-Every signup is auto-Pro:
-- `is_pro = true` (gives the "OG" gradient ring around the avatar)
-- `is_early_bird = true` (gives the "EARLY BIRD" chip on the Pro sheet)
-- `pro_since = now()` (used in "Pro member since" display)
-
-This is set by a Postgres trigger on `auth.users` insert that creates the matching `profiles` row.
+New signups land as auto-Pro early-birds (`is_pro=true`, `is_early_bird=true`, `pro_since=now()`) via a Postgres trigger on `auth.users` insert that creates the matching `profiles` row. Flipping `is_pro=false` on a user downgrades them to free-tier limits at the next AI call — `ai-guard.ts` reads the flag live, no client cache.
 
 ### Why no real paywall yet
 
-I'm pre-launch with ~10 users. Charging now would prevent the only thing I need at this stage: user feedback. The infrastructure to charge (RevenueCat, StoreKit, Play Billing) is ready to wire when the time comes; the `is_pro` column is already there to gate against.
+I'm pre-launch. Charging now would block the only thing I need at this stage: user feedback. The infrastructure to charge (RevenueCat, StoreKit, Play Billing) is ready to wire when the time comes; the `is_pro` column already gates the AI usage.
 
 ### How rate limits work
 
-Silent caps per action per day, read from `app_config`:
+Silent per-tier caps per action per day, read from `app_config`:
 
-| Key | Default | Action |
+| Action | Pro key / default | Free key / default |
 |---|---|---|
-| `limit_meal_plan` | 3 | regenerating the 7-day plan |
-| `limit_recipe` | 8 | opening a recipe |
-| `limit_swap` | 5 | swapping a meal |
-| `limit_nutrition` | 20 | AI nutrition lookup |
+| Regenerate meal plan | `limit_meal_plan` / 3 | `limit_meal_plan_free` / 1 |
+| Open recipe | `limit_recipe` / 8 | `limit_recipe_free` / 2 |
+| Swap meal | `limit_swap` / 5 | `limit_swap_free` / 1 |
+| Nutrition lookup | `limit_nutrition` / 20 | `limit_nutrition_free` / 3 |
+
+Free users hitting the cap see a 429 with `code: upgrade_required` (vs Pro's `rate_limited`). Both route to the same friendly toast on the client; the code distinction is kept server-side for analytics and future upsell flows.
 
 When over limit, the edge function returns 429 with a friendly action-specific message ("You've explored a lot of recipes today! More flavours await tomorrow."). The client routes this through `ProContext` to a soft toast — the user never sees the word "limit" or "quota."
 
@@ -682,7 +680,7 @@ In order:
 
 ### Pure JSONB meal plans
 
-**Choice:** Whole 7-day meal plan stored as one JSONB blob in `meal_plans.plan`.
+**Choice:** Whole 6-day meal plan stored as one JSONB blob in `meal_plans.plan`.
 
 **Trade-off:** Can't write queries like "show me all users who had paneer on day 3 of their plan."
 

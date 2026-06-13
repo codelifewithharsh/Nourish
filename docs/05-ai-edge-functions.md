@@ -1,6 +1,6 @@
 # 05 — AI & Edge Functions
 
-*Last updated: 2026-06-10.*
+*Last updated: 2026-06-13.*
 
 This doc explains how the server side of every AI feature works: the Deno edge functions, the shared `guard()`, the OpenAI integration, and how to add a new AI action safely.
 
@@ -33,7 +33,9 @@ Client → useAI() → invokeAI() → supabase.functions.invoke('<name>')
 
 ---
 
-## 2. The five functions
+## 2. The functions
+
+Four rate-limited AI actions plus one free `daily-nudge`:
 
 | Function | Action | Daily limit (default) | Cache? |
 |---|---|---|---|
@@ -45,7 +47,7 @@ Client → useAI() → invokeAI() → supabase.functions.invoke('<name>')
 
 `daily-nudge` sits outside the rate-limit system entirely — it doesn't use `guard()`. It reads the user's profile + today's logs, calls GPT-4o-mini for a ≤18-word personalised message, and caches the result in `ai_response_cache` for the rest of the UTC day. The client also caches it in AsyncStorage so subsequent app opens don't even hit the network.
 
-**Limits are not hardcoded.** Each function's daily cap is read at call time from the `app_config` table (`limit_meal_plan`, `limit_recipe`, etc.) via the `get_config_int(key, default)` RPC. Tuning a limit is a single dashboard edit — no redeploy. The defaults in `ACTION_META` (inside [`ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts)) only kick in if the row is missing.
+**Limits are not hardcoded.** Each function's daily cap is read at call time from the `app_config` table via the `get_config_int(key, default)` RPC. `ai-guard.ts` looks up the caller's `is_pro` flag and picks between `proConfigKey` (e.g. `limit_meal_plan`) and `freeConfigKey` (e.g. `limit_meal_plan_free`). Tuning a limit is a single dashboard edit — no redeploy. The defaults in `ACTION_META` (inside [`ai-guard.ts`](../supabase/functions/_shared/ai-guard.ts)) only kick in if the row is missing. Free-tier defaults: 1 meal plan / 2 recipes / 1 swap / 3 nutrition lookups per day.
 
 ---
 
@@ -242,7 +244,7 @@ Edge functions live in `supabase/functions/<name>/index.ts` with optional `deno.
 # Deploy one
 npx supabase functions deploy generate-meal-plan
 
-# Or all five
+# Or all of them
 for fn in generate-meal-plan get-recipe lookup-nutrition swap-meal daily-nudge; do
   npx supabase functions deploy $fn
 done
