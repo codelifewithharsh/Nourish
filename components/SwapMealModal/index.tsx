@@ -227,7 +227,7 @@ export function SwapMealModal({ visible, mealType, currentMealName, isAdd = fals
 
   return (
     <Modal visible={modalMounted || visible} transparent animationType="none" onRequestClose={handleClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
         <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, s.backdropColor, backdropStyle]} />
         <View style={s.overlay}>
           <TouchableOpacity style={s.overlayDismiss} activeOpacity={1} onPress={handleClose} />

@@ -119,6 +119,17 @@ export default function HomeScreen() {
     });
   }, []);
 
+  // First launch: auto-enable water reminders at 2h interval.
+  useEffect(() => {
+    AsyncStorage.getItem('@nourish/water_interval').then(async (val) => {
+      if (val !== null) return; // user has already set a preference
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+      await scheduleWaterReminders(1);
+      await AsyncStorage.setItem('@nourish/water_interval', '1');
+    });
+  }, []);
+
   const dismissWelcome = useCallback(() => {
     setWelcomeVisible(false);
     AsyncStorage.setItem('@nourish/welcome_seen', '1');
@@ -152,7 +163,7 @@ export default function HomeScreen() {
       await AsyncStorage.setItem(key, '1');
       setStreakShareOpen(true);
       // Day 3 = first real habit signal — best time to ask for a rating
-      if (data.streak === 2) {
+      if (data.streak === 3) {
         setTimeout(async () => {
           analytics.appRated();
           if (await StoreReview.isAvailableAsync()) {
@@ -662,6 +673,13 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
   const [waterInterval, setWaterInterval] = useState(0);
   const [modalMounted, setModalMounted] = useState(false);
 
+  // Load persisted water interval on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@nourish/water_interval').then((val) => {
+      if (val !== null) setWaterInterval(Number(val));
+    });
+  }, []);
+
   const translateY = useSharedValue(600);
   const backdropOpacity = useSharedValue(0);
 
@@ -694,6 +712,7 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
     const granted = await requestNotificationPermission();
     if (!granted) return;
     setWaterInterval(val);
+    await AsyncStorage.setItem('@nourish/water_interval', String(val));
     analytics.waterIntervalChanged({ interval_hours: val });
     analytics.notificationsToggled({ type: 'water', enabled: val > 0 });
     if (val === 0) await cancelWaterReminders();
@@ -703,6 +722,19 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
   const handleMealTime = async (meal: keyof MealTimes, hour: number) => {
     analytics.notificationTimeChanged({ meal, hour });
     await onMealTimeChange(meal, hour);
+  };
+
+  const sendTestNotification = async () => {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Hydration check 💧',
+        body: 'Your body needs water to burn fat and build muscle. Have a glass now.',
+        sound: false,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3 },
+    });
   };
 
   const fmtHour = (h: number) => h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
@@ -772,6 +804,14 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
                 ))}
               </View>
             </View>
+
+            <View style={ns.divider} />
+
+            {/* ── Test notification ── */}
+            <TouchableOpacity style={ns.testBtn} onPress={sendTestNotification} activeOpacity={0.8}>
+              <Bell size={14} color={Colors.accent} strokeWidth={2} />
+              <Txt style={ns.testBtnTxt}>Send test notification (3s)</Txt>
+            </TouchableOpacity>
 
             <View style={ns.divider} />
 
@@ -849,4 +889,7 @@ const ns = StyleSheet.create({
   chipTxt:       { fontSize: 12, fontWeight: '600', color: Colors.secondary, lineHeight: 16 },
   chipTxtActive: { color: '#5B8DB8', fontWeight: '800' },
   waterHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
+
+  testBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.accent, borderStyle: 'dashed' },
+  testBtnTxt: { fontSize: 13, fontWeight: '600', color: Colors.accent, lineHeight: 18 },
 });

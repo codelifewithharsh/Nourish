@@ -27,6 +27,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Keep badge count at zero so no dot appears on the launcher icon.
+Notifications.setBadgeCountAsync(0).catch(() => {});
+
 // ── Push token registration ──────────────────────────────────────────────────
 //
 // Call this once after the user is authenticated. It requests permission,

@@ -34,6 +34,7 @@ interface PlanReadyScreenProps {
   dietType: DietType;
   restrictions: Restriction[];
   weightKg: number;
+  userName?: string;
   onGetStarted: () => void;
   saving?: boolean;
   saveError?: string | null;
@@ -230,7 +231,7 @@ function FadeBlock({ delay, children, style }: {
 
 // ─── Phase 2 — Results ────────────────────────────────────────────────────────
 
-function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetStarted, saving, saveError }: PlanReadyScreenProps) {
+function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, userName, onGetStarted, saving, saveError }: PlanReadyScreenProps) {
   const insets  = useSafeAreaInsets();
   const pricing = useProPricing();
   const celebScale = useRef(new Animated.Value(0)).current;
@@ -260,7 +261,7 @@ function ResultsPhase({ targets, goal, cuisines, dietType, restrictions, onGetSt
             />
           </Animated.View>
           <FadeBlock delay={0}>
-            <Txt style={rs.title}>Your plan is ready, Harsh!</Txt>
+            <Txt style={rs.title}>Your plan is ready{userName ? `, ${userName.split(' ')[0]}` : ''}!</Txt>
           </FadeBlock>
           <FadeBlock delay={150}>
             <Txt style={rs.subtitle} numberOfLines={2}>{personalisedLine}</Txt>

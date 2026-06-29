@@ -43,6 +43,13 @@ export default function OnboardingScreen() {
   const [targets, setTargets] = useState<NutritionTargets>({ dailyCalories: 2000, dailyProtein: 120 });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.full_name) setUserName(user.user_metadata.full_name);
+    });
+  }, []);
 
   const [data, setData] = useState<OnboardingData>({
     goal: null,
@@ -228,6 +235,7 @@ export default function OnboardingScreen() {
             dietType={data.dietType}
             restrictions={data.restrictions}
             weightKg={data.weightKg}
+            userName={userName}
             saving={saving}
             saveError={saveError}
             onGetStarted={handleGetStarted}

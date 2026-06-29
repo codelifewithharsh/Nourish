@@ -52,6 +52,24 @@ export default function RecipeScreen() {
   const { recipe, loading, error, partitioned } = useRecipe(mealName);
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
+
+  // Check if this meal was already logged today so the button reflects reality
+  // even when navigating here from outside the log flow.
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('daily_logs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('date', todayStr())
+        .eq('meal_type', mealType)
+        .eq('meal_name', mealName)
+        .maybeSingle();
+      if (data) setLogged(true);
+    });
+  }, [mealName, mealType]);
+
   const shareFooter = useAppConfigText(
     'recipe_share_footer',
     'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=in.nourish.app',

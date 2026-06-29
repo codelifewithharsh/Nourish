@@ -95,7 +95,12 @@ export default function RootLayout() {
       }
     });
 
+    const notifReceivedListener = Notifications.addNotificationReceivedListener(() => {
+      Notifications.setBadgeCountAsync(0).catch(() => {});
+    });
+
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      Notifications.setBadgeCountAsync(0).catch(() => {});
       if (response.actionIdentifier === WATER_ACTION_ID) {
         handleLogWaterFromNotification();
       }
@@ -103,6 +108,7 @@ export default function RootLayout() {
 
     return () => {
       subscription.unsubscribe();
+      notifReceivedListener.remove();
       responseListener.remove();
     };
   }, []);

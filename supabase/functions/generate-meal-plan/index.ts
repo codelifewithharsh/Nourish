@@ -17,7 +17,7 @@ const FALLBACK_PLAN = {
     ], total_calories: 1340, total_protein: 42 },
     { day: 3, meals: [
       { type: "breakfast", name: "Besan Chilla",          calories: 280, protein: 16, carbs: 32, fat: 10 },
-      { type: "lunch",     name: "Chole with Bhature",    calories: 560, protein: 18, carbs: 82, fat: 14 },
+      { type: "lunch",     name: "Chole Rice",            calories: 480, protein: 18, carbs: 72, fat: 10 },
       { type: "dinner",    name: "Mixed Veg Curry with Rice", calories: 440, protein: 14, carbs: 66, fat: 10 },
     ], total_calories: 1280, total_protein: 48 },
     { day: 4, meals: [
@@ -136,6 +136,7 @@ Rules:
 - Spread calories and protein evenly across meals
 - Total daily calories must be within 100 kcal of the target
 - Total daily protein must be within 10g of the target
+- Prioritise home-cooked, balanced Indian meals; never suggest deep-fried or nutritionally poor dishes such as Bhature, Puri, Samosa, Jalebi, Kachori, Vada Pav, or similar indulgent street food
 ${pantryRule}
 
 Respond ONLY with valid JSON in this exact format, no extra text:
