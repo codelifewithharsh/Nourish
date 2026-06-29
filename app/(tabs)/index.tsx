@@ -724,19 +724,6 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
     await onMealTimeChange(meal, hour);
   };
 
-  const sendTestNotification = async () => {
-    const granted = await requestNotificationPermission();
-    if (!granted) return;
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Hydration check 💧',
-        body: 'Your body needs water to burn fat and build muscle. Have a glass now.',
-        sound: false,
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3 },
-    });
-  };
-
   const fmtHour = (h: number) => h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
 
   return (
@@ -804,14 +791,6 @@ function NotifSheet({ visible, enabled, mealTimes, onToggle, onMealTimeChange, o
                 ))}
               </View>
             </View>
-
-            <View style={ns.divider} />
-
-            {/* ── Test notification ── */}
-            <TouchableOpacity style={ns.testBtn} onPress={sendTestNotification} activeOpacity={0.8}>
-              <Bell size={14} color={Colors.accent} strokeWidth={2} />
-              <Txt style={ns.testBtnTxt}>Send test notification (3s)</Txt>
-            </TouchableOpacity>
 
             <View style={ns.divider} />
 
@@ -890,6 +869,4 @@ const ns = StyleSheet.create({
   chipTxtActive: { color: '#5B8DB8', fontWeight: '800' },
   waterHint:     { fontSize: 11, color: Colors.secondary, lineHeight: 15 },
 
-  testBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.accent, borderStyle: 'dashed' },
-  testBtnTxt: { fontSize: 13, fontWeight: '600', color: Colors.accent, lineHeight: 18 },
 });
