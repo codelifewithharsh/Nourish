@@ -60,6 +60,7 @@ export default function OnboardingScreen() {
     dietType: 'pure_veg',
     restrictions: [],
     activityLevel: null,
+    sex: 'unspecified',
   });
 
   const translateX = useSharedValue(0);
@@ -94,7 +95,7 @@ export default function OnboardingScreen() {
       if (updated.goal && updated.activityLevel) {
         setTargets(calculateNutrition(
           updated.weightKg, updated.heightCm, updated.age,
-          updated.activityLevel, updated.goal,
+          updated.activityLevel, updated.goal, updated.sex,
         ));
       }
       goNext();
@@ -126,6 +127,7 @@ export default function OnboardingScreen() {
       weight_kg: data.weightKg,
       height_cm: data.heightCm,
       activity_level: data.activityLevel ?? 'lightly_active',
+      sex: data.sex,
       diet_type: data.dietType,
       cuisines: data.cuisines,
       restrictions: data.restrictions,
@@ -195,11 +197,13 @@ export default function OnboardingScreen() {
         {step === 2 && (
           <AboutScreen
             age={data.age}
+            sex={data.sex}
             weightKg={data.weightKg}
             heightCm={data.heightCm}
             weightUnit={weightUnit}
             heightUnit={heightUnit}
             onChangeAge={(age) => setData((d) => ({ ...d, age }))}
+            onChangeSex={(sex) => setData((d) => ({ ...d, sex }))}
             onChangeWeight={(weightKg) => setData((d) => ({ ...d, weightKg }))}
             onChangeHeight={(heightCm) => setData((d) => ({ ...d, heightCm }))}
             onChangeWeightUnit={setWeightUnit}

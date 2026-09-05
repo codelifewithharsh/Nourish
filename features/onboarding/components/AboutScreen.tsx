@@ -9,8 +9,9 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { BorderRadius } from '@/constants/spacing';
 import { Txt } from '@/components/ui';
-import { WeightUnit, HeightUnit } from '../types';
+import { WeightUnit, HeightUnit, Sex } from '../types';
 
 const ITEM_HEIGHT = 52;
 const VISIBLE_ITEMS = 3;
@@ -175,6 +176,12 @@ function UnitToggle<T extends string>({
 
 // ─── Height row ───────────────────────────────────────────────────────────────
 
+const SEX_OPTIONS: { label: string; value: Sex }[] = [
+  { label: 'Male',          value: 'male' },
+  { label: 'Female',        value: 'female' },
+  { label: 'Rather not say', value: 'unspecified' },
+];
+
 const HEIGHTS_CM = Array.from({ length: 71 }, (_, i) => i + 150);
 
 function cmToFtIn(cm: number) {
@@ -250,11 +257,13 @@ const WEIGHTS_LBS = WEIGHTS_KG.map((kg) => Math.round(kg * 2.205));
 
 interface AboutScreenProps {
   age: number;
+  sex: Sex;
   weightKg: number;
   heightCm: number;
   weightUnit: WeightUnit;
   heightUnit: HeightUnit;
   onChangeAge: (v: number) => void;
+  onChangeSex: (v: Sex) => void;
   onChangeWeight: (v: number) => void;
   onChangeHeight: (v: number) => void;
   onChangeWeightUnit: (u: WeightUnit) => void;
@@ -263,9 +272,9 @@ interface AboutScreenProps {
 }
 
 export function AboutScreen({
-  age, weightKg, heightCm,
+  age, sex, weightKg, heightCm,
   weightUnit, heightUnit,
-  onChangeAge, onChangeWeight, onChangeHeight,
+  onChangeAge, onChangeSex, onChangeWeight, onChangeHeight,
   onChangeWeightUnit, onChangeHeightUnit,
   onContinue,
 }: AboutScreenProps) {
@@ -288,6 +297,35 @@ export function AboutScreen({
             <CascadePicker items={AGES} selected={age} onSelect={onChangeAge} unit="yrs" />
           </View>
         </View>
+
+        <View style={styles.divider} />
+
+        {/* Sex — used only for the BMR/IBW equations, which are sex-specific.
+            Without it we have to average the male and female formulas, which
+            is wrong for everyone by ~114 kcal/day. */}
+        <View style={styles.sexRow}>
+          <View style={styles.labelCol}>
+            <Txt style={styles.pickerLabel}>🧬 Sex</Txt>
+          </View>
+          <View style={styles.sexOptions}>
+            {SEX_OPTIONS.map((opt) => {
+              const selected = sex === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => onChangeSex(opt.value)}
+                  style={[styles.sexChip, selected && styles.sexChipSelected]}
+                  activeOpacity={0.8}
+                >
+                  <Txt style={[styles.sexChipText, selected && styles.sexChipTextSelected]}>
+                    {opt.label}
+                  </Txt>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+        <Txt style={styles.sexHint}>Used only to calculate your calorie needs accurately</Txt>
 
         <View style={styles.divider} />
 
@@ -337,6 +375,46 @@ export function AboutScreen({
 }
 
 const styles = StyleSheet.create({
+  sexRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  sexOptions: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sexChip: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sexChipSelected: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentLight,
+  },
+  sexChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.secondary,
+    textAlign: 'center',
+  },
+  sexChipTextSelected: {
+    color: Colors.accent,
+  },
+  sexHint: {
+    fontSize: 11,
+    color: Colors.secondary,
+    marginTop: -6,
+    marginBottom: 2,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,

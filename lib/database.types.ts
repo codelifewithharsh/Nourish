@@ -14,8 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      weight_logs: {
+        Row: {
+          id: string
+          user_id: string
+          date: string
+          weight_kg: number
+          logged_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          date?: string
+          weight_kg: number
+          logged_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          date?: string
+          weight_kg?: number
+          logged_at?: string
+        }
+        Relationships: []
+      }
       daily_logs: {
         Row: {
+          fibre: number
+          sugar: number
+          sodium: number
+          sat_fat: number
+          source: string | null
+          photo_path: string | null
           calories: number
           carbs: number
           date: string
@@ -28,6 +58,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          fibre?: number
+          sugar?: number
+          sodium?: number
+          sat_fat?: number
+          source?: string | null
+          photo_path?: string | null
           calories?: number
           carbs?: number
           date?: string
@@ -40,6 +76,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          fibre?: number
+          sugar?: number
+          sodium?: number
+          sat_fat?: number
+          source?: string | null
+          photo_path?: string | null
           calories?: number
           carbs?: number
           date?: string
@@ -147,6 +189,17 @@ export type Database = {
       profiles: {
         Row: {
           activity_level: string | null
+          sex: string | null
+          phone: string | null
+          region: string | null
+          meals_per_day: number | null
+          cooking_time: string | null
+          budget_tier: string | null
+          eats_out_frequency: string | null
+          allergies: string | null
+          target_weight_kg: number | null
+          target_date: string | null
+          medical_flags: string[] | null
           age: number | null
           created_at: string | null
           credits: number
@@ -170,6 +223,17 @@ export type Database = {
         }
         Insert: {
           activity_level?: string | null
+          sex?: string | null
+          phone?: string | null
+          region?: string | null
+          meals_per_day?: number | null
+          cooking_time?: string | null
+          budget_tier?: string | null
+          eats_out_frequency?: string | null
+          allergies?: string | null
+          target_weight_kg?: number | null
+          target_date?: string | null
+          medical_flags?: string[] | null
           age?: number | null
           created_at?: string | null
           credits?: number
@@ -193,6 +257,17 @@ export type Database = {
         }
         Update: {
           activity_level?: string | null
+          sex?: string | null
+          phone?: string | null
+          region?: string | null
+          meals_per_day?: number | null
+          cooking_time?: string | null
+          budget_tier?: string | null
+          eats_out_frequency?: string | null
+          allergies?: string | null
+          target_weight_kg?: number | null
+          target_date?: string | null
+          medical_flags?: string[] | null
           age?: number | null
           created_at?: string | null
           credits?: number
