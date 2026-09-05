@@ -6,12 +6,15 @@ import {
   Animated, Easing, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sparkles, X, Trash2, ArrowUp, Check, Pencil } from 'lucide-react-native';
+import { Sparkles, X, Trash2, ArrowUp, Check, Pencil, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { BorderRadius } from '@/constants/spacing';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { useAI, useProMember } from '@/features/pro';
+import { usePhotoLog, type PhotoItem, type PhotoStage } from '@/features/nutrition/usePhotoLog';
+import { PhotoResultSheet } from '@/features/nutrition/components/PhotoResultSheet';
 import { AIError } from '@/lib/aiClient';
 import { analytics } from '@/lib/analytics';
 import { todayStr, localDateStr } from '@/lib/date';
@@ -124,6 +127,7 @@ const mb = StyleSheet.create({
 
 function AIHero({
   query, onChangeQuery, onSubmit, looking, focused, onFocus, onBlur, inputRef,
+  onCapture, onPickFromLibrary, photoStage,
 }: {
   query: string;
   onChangeQuery: (q: string) => void;
@@ -133,8 +137,12 @@ function AIHero({
   onFocus: () => void;
   onBlur: () => void;
   inputRef: React.RefObject<TextInput | null>;
+  onCapture: () => void;
+  onPickFromLibrary: () => void;
+  photoStage: PhotoStage;
 }) {
   const { isPro } = useProMember();
+  const photoBusy = photoStage !== 'idle';
   const sparklePulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -191,11 +199,67 @@ function AIHero({
           }
         </TouchableOpacity>
       </View>
+
+      {/* Photo logging. Typing a meal takes far longer than photographing it,
+          so this is the primary path — the text field stays for the times a
+          photo isn't possible (eating out, already finished the plate). */}
+      <View style={hero.photoRow}>
+        <TouchableOpacity
+          style={hero.photoBtn}
+          onPress={onCapture}
+          activeOpacity={0.85}
+          disabled={photoBusy}
+        >
+          {photoBusy
+            ? <ActivityIndicator size="small" color={Colors.accent} />
+            : <Camera size={18} color={Colors.accent} strokeWidth={2.2} />}
+          <Txt style={hero.photoBtnTxt}>
+            {photoStage === 'analyzing' ? 'Reading your plate…'
+              : photoStage === 'preparing' ? 'Preparing…'
+              : 'Snap your meal'}
+          </Txt>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={hero.libraryBtn}
+          onPress={onPickFromLibrary}
+          activeOpacity={0.85}
+          disabled={photoBusy}
+        >
+          <ImageIcon size={18} color={Colors.secondary} strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const hero = StyleSheet.create({
+  photoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  photoBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.accentLight,
+  },
+  photoBtnTxt: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.accent,
+  },
+  libraryBtn: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.background,
+  },
   wrap:        { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, gap: 12, borderWidth: 1.5, borderColor: Colors.border, shadowColor: Colors.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   wrapFocused: { borderColor: Colors.accent, shadowOpacity: 0.15, shadowRadius: 12 },
   topRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -618,6 +682,8 @@ export default function LogScreen() {
   const [editSaving, setEditSaving] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const invoke = useAI();
+  const photo = usePhotoLog();
+  const [photoSaving, setPhotoSaving] = useState(false);
 
   const { greeting, suggestedType } = getTimeOfDay();
 
@@ -678,6 +744,15 @@ export default function LogScreen() {
     }, [])
   );
 
+  // Rate-limit (429) toasts are handled by ProProvider; anything reaching
+  // photo.error is a real failure worth showing.
+  useEffect(() => {
+    if (photo.error) {
+      Alert.alert('Photo logging', photo.error);
+      photo.reset();
+    }
+  }, [photo.error]);
+
   const handleLookup = useCallback(async (q: string) => {
     const text = q.trim();
     if (!text || !userId) return;
@@ -724,6 +799,47 @@ export default function LogScreen() {
       setConfirming(false);
     }
   }, [result, userId, selectedType, fetchLogs]);
+
+  // Photo logging writes one daily_logs row per identified item, so the
+  // timeline shows "Roti" and "Dal" separately rather than one opaque blob.
+  // They share a photo_path, which is what lets the UI group them later.
+  const handlePhotoConfirm = useCallback(async (items: PhotoItem[], mealName: string) => {
+    if (!userId || !photo.result) return;
+    setPhotoSaving(true);
+    haptic.success();
+    try {
+      const photoPath = await photo.uploadPhoto(photo.result.base64, userId);
+      const today = todayStr();
+      const rows = items.map((it) => ({
+        user_id:    userId,
+        date:       today,
+        meal_type:  selectedType,
+        meal_name:  it.item,
+        calories:   it.calories,
+        protein:    it.protein,
+        carbs:      it.carbs,
+        fat:        it.fat,
+        fibre:      it.fibre,
+        sugar:      it.sugar,
+        sodium:     it.sodium,
+        sat_fat:    it.sat_fat,
+        source:     'photo',
+        photo_path: photoPath,
+      }));
+      const { error } = await supabase.from('daily_logs').insert(rows);
+      if (error) {
+        Alert.alert('Could not save', 'Please try again.');
+        return;
+      }
+      const totalCal = items.reduce((n, i) => n + i.calories, 0);
+      const totalPro = items.reduce((n, i) => n + i.protein, 0);
+      analytics.logEntryAdded({ meal_type: selectedType, calories: totalCal, protein: totalPro });
+      photo.reset();
+      fetchLogs(userId);
+    } finally {
+      setPhotoSaving(false);
+    }
+  }, [userId, photo, selectedType, fetchLogs]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (!userId) return;
@@ -795,6 +911,16 @@ export default function LogScreen() {
         onSave={handleEditSave}
         onClose={() => setEditingEntry(null)}
       />
+      <PhotoResultSheet
+        visible={photo.result !== null}
+        result={photo.result}
+        saving={photoSaving}
+        mealType={selectedType}
+        onChangeMealType={setSelectedType}
+        onConfirm={handlePhotoConfirm}
+        onRetake={() => { photo.reset(); photo.capture('camera'); }}
+        onClose={photo.reset}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -822,6 +948,9 @@ export default function LogScreen() {
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
             inputRef={inputRef}
+            onCapture={() => photo.capture('camera')}
+            onPickFromLibrary={() => photo.capture('library')}
+            photoStage={photo.stage}
           />
 
           {/* ── Result or Chips ── */}

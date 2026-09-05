@@ -2,9 +2,10 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, UtensilsCrossed, PlusCircle, User } from 'lucide-react-native';
+import { Home, UtensilsCrossed, Camera, User } from 'lucide-react-native';
 import { LucideIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { haptic } from '@/lib/haptics';
 import { Txt } from './Typography';
 
 type TabName = 'index' | 'meals' | 'log' | 'profile';
@@ -17,9 +18,14 @@ interface TabConfig {
 const TAB_CONFIG: Record<TabName, TabConfig> = {
   index: { label: 'Home', Icon: Home },
   meals: { label: 'Meals', Icon: UtensilsCrossed },
-  log: { label: 'Log', Icon: PlusCircle },
+  log: { label: 'Log', Icon: Camera },
   profile: { label: 'You', Icon: User },
 };
+
+// Logging is the one action the whole app exists for, so it gets a raised
+// button in the middle of the bar rather than an equal-weight tab. The route
+// is still 'log' — this only changes how it's presented.
+const CAMERA_TAB: TabName = 'log';
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -46,6 +52,24 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           const onLongPress = () => {
             navigation.emit({ type: 'tabLongPress', target: route.key });
           };
+
+          if (route.name === CAMERA_TAB) {
+            return (
+              <TouchableOpacity
+                key={route.key}
+                onPress={() => { haptic.medium(); onPress(); }}
+                onLongPress={onLongPress}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Log a meal with your camera"
+                accessibilityState={isFocused ? { selected: true } : {}}
+              >
+                <View style={[styles.cameraBtn, isFocused && styles.cameraBtnFocused]}>
+                  <config.Icon size={24} color="#FFFFFF" strokeWidth={2.4} />
+                </View>
+              </TouchableOpacity>
+            );
+          }
 
           return (
             <TouchableOpacity
@@ -121,5 +145,25 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
+  },
+  cameraBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Lifts the button out of the pill so it reads as the primary action.
+    marginTop: -14,
+    borderWidth: 4,
+    borderColor: '#1A1A1A',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  cameraBtnFocused: {
+    backgroundColor: '#245C43',
   },
 });
