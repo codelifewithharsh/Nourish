@@ -4,6 +4,12 @@ Welcome. This is your map to understanding the codebase end-to-end.
 
 These docs are written for someone who knows JavaScript/TypeScript well but is touching React Native, Expo, Supabase, and edge functions for the first time. They explain not just *what* the code does, but *why* it's shaped this way — the trade-offs we picked and the ones we deferred.
 
+> **Looking for a quick, accurate answer about how something works?** Go straight to
+> **[12-codebase-reference.md](./12-codebase-reference.md)** — it was verified line-by-line against the
+> source on 2026-09-06 and is the most current description of the app. Docs 01–11 predate it and have
+> known drift (listed in doc 12 §15).
+
+
 ## Reading order
 
 If you're new, read them in order. Each builds on the previous.
@@ -19,6 +25,8 @@ If you're new, read them in order. Each builds on the previous.
 9. **[09-code-review.md](./09-code-review.md)** — A senior-engineer sanity pass over the whole codebase: real bugs, security holes, dummy data, dead code. Read this before any external release.
 10. **[10-lessons-learned.md](./10-lessons-learned.md)** — The hard-won technical lessons from building this app: every gotcha we hit, the reasoning behind every non-obvious choice, and what we'd want a future engineer (or future-us) to remember.
 11. **[11-interview-prep.md](./11-interview-prep.md)** — Comprehensive end-to-end explanation of Nourish for learning and interviews. Read this if you want to talk confidently about every layer — architecture, AI prompts, RLS, OAuth, TDEE — with the trade-offs and reasoning that back each choice.
+12. **[12-codebase-reference.md](./12-codebase-reference.md)** — **Single-file technical reference.** Everything about how the app works today — stack, routes, schema, RPCs, edge functions, domain math, conventions — verified against the source. Written so you (or an AI) can answer questions without reading the codebase.
+13. **[13-product-plan.md](./13-product-plan.md)** — The product plan: why the direction is changing, the research behind it, success metrics, and the phased build sequence.
 
 ## Keep these docs alive
 
