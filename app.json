@@ -45,7 +45,15 @@
           "resizeMode": "contain"
         }
       ],
-      "./plugins/withoutPushEntitlement"
+      "./plugins/withoutPushEntitlement",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nourish uses your photos so you can log a meal from a picture.",
+          "cameraPermission": "Nourish uses your camera so you can log a meal by photographing it."
+        }
+      ]
     ],
     "extra": {
       "eas": {

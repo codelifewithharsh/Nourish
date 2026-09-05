@@ -1,4 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^$\")",
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(xargs ls -la)",
+      "Bash(sed -n '50,70p' /Users/harsh/Documents/Projects/Satva/app/\\\\\\(tabs\\\\\\)/meals.tsx)",
+      "Bash(sed -n '80,100p' /Users/harsh/Documents/Projects/Satva/features/home/useHomeData.ts)"
+    ]
+  },
   "enabledPlugins": {
     "expo@claude-plugins-official": true
   }
