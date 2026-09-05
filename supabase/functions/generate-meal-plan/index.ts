@@ -51,6 +51,15 @@ interface ProfileShape {
   diet_type:            string;
   restrictions:         string[];
   kitchen_ingredients?: string | null;
+  // All optional — collected progressively, so any of these may be null for
+  // an existing user. Every consumer must degrade gracefully.
+  region?:              string | null;
+  meals_per_day?:       number | null;
+  cooking_time?:        string | null;
+  budget_tier?:         string | null;
+  eats_out_frequency?:  string | null;
+  allergies?:           string | null;
+  medical_flags?:       string[] | null;
 }
 
 // Normalise free-text kitchen ingredients into a stable comma-separated list so
@@ -77,6 +86,14 @@ function planCacheKey(p: ProfileShape): string {
   const cuisines      = [...(p.cuisines ?? [])].sort().join(",") || "north_indian";
   const restrictions  = [...(p.restrictions ?? [])].sort().join(",") || "none";
   const ingredients   = normaliseIngredients(p.kitchen_ingredients);
+  // Anything that changes the generated plan must be part of the key.
+  const region        = (p.region ?? "any").toLowerCase();
+  const mealsPerDay   = p.meals_per_day ?? 3;
+  const cookTime      = (p.cooking_time ?? "any").toLowerCase();
+  const budget        = (p.budget_tier ?? "any").toLowerCase();
+  const eatsOut       = (p.eats_out_frequency ?? "any").toLowerCase();
+  const allergyKey    = normaliseIngredients(p.allergies) || "none";
+  const medical       = [...(p.medical_flags ?? [])].sort().join(",") || "none";
   return [
     p.goal      ?? "stay_healthy",
     p.diet_type ?? "vegetarian",
@@ -85,6 +102,13 @@ function planCacheKey(p: ProfileShape): string {
     `c${calBucket}`,
     `p${proteinBucket}`,
     ingredients ? `i:${ingredients}` : "i:none",
+    `r:${region}`,
+    `m:${mealsPerDay}`,
+    `t:${cookTime}`,
+    `b:${budget}`,
+    `e:${eatsOut}`,
+    `a:${allergyKey}`,
+    `h:${medical}`,
   ].join("|").toLowerCase();
 }
 
@@ -105,6 +129,12 @@ const SYSTEM_PROMPT =
   "that match the user's body, goal, and pantry. You always return valid JSON only — no prose, no markdown.";
 
 function buildUserPrompt(profile: ProfileShape): string {
+  const mealsPerDay = profile.meals_per_day ?? 3;
+  const mealsRule = mealsPerDay === 2
+    ? "2 meals per day: lunch, dinner"
+    : mealsPerDay >= 4
+      ? "4 meals per day: breakfast, lunch, snack, dinner"
+      : "3 meals per day: breakfast, lunch, dinner";
   const cuisineStr     = profile.cuisines.length > 0
     ? profile.cuisines.join(", ").replace(/_/g, " ")
     : "North Indian";
@@ -119,6 +149,63 @@ function buildUserPrompt(profile: ProfileShape): string {
     ? "- Lean toward meals that use the pantry items above; introduce 1–2 cheap additions per meal only if needed."
     : "";
 
+  // Progressive fields. Each contributes a line only when we have it, so an
+  // older profile produces exactly the prompt it did before.
+  const extra: string[] = [];
+  if (profile.region?.trim()) {
+    extra.push(`- Home region: ${profile.region.replace(/_/g, " ")}. Favour dishes actually cooked in that region's kitchens over generic "Indian" food.`);
+  }
+  if (profile.cooking_time) {
+    const t: Record<string, string> = {
+      under_15: "Under 15 minutes per meal — assume a rushed weekday cook.",
+      under_30: "Up to 30 minutes per meal.",
+      relaxed:  "Time is not a constraint; slower dishes are fine.",
+    };
+    if (t[profile.cooking_time]) extra.push(`- Cooking time available: ${t[profile.cooking_time]}`);
+  }
+  if (profile.budget_tier) {
+    const b: Record<string, string> = {
+      economical: "Economical — build around dal, seasonal vegetables, and grains. Avoid paneer, nuts, and out-of-season produce as daily staples.",
+      moderate:   "Moderate — paneer, curd, and nuts a few times a week is fine.",
+      premium:    "Comfortable — no meaningful ingredient cost constraint.",
+    };
+    if (b[profile.budget_tier]) extra.push(`- Budget: ${b[profile.budget_tier]}`);
+  }
+  if (profile.eats_out_frequency) {
+    const e: Record<string, string> = {
+      rarely: "Rarely eats out — plan for home cooking every day.",
+      weekly: "Eats out about once a week — keep one flexible lighter day.",
+      often:  "Eats out several times a week — keep home meals lighter and protein-forward to balance restaurant days.",
+    };
+    if (e[profile.eats_out_frequency]) extra.push(`- Eating out: ${e[profile.eats_out_frequency]}`);
+  }
+  if (profile.allergies?.trim()) {
+    extra.push(`- ALLERGIES — must never appear in any meal, in any form: ${profile.allergies.trim()}`);
+  }
+  if (profile.medical_flags && profile.medical_flags.length > 0) {
+    const flags = profile.medical_flags.join(", ").replace(/_/g, " ");
+    extra.push(
+      `- Health considerations: ${flags}. Adapt the plan sensibly (for example lower-GI choices, less added sugar, less salt as relevant). ` +
+      `Do not diagnose, do not reference medication, and do not claim to treat anything.`,
+    );
+  }
+  const extraBlock = extra.length > 0 ? "\n" + extra.join("\n") : "";
+
+  // The worked example must agree with mealsRule, or the model follows the
+  // example and silently ignores the rule.
+  const EXAMPLE_ROW: Record<string, string> = {
+    breakfast: '        { "type": "breakfast", "name": "meal name", "calories": 320, "protein": 14, "carbs": 48, "fat": 8 }',
+    lunch:     '        { "type": "lunch", "name": "meal name", "calories": 480, "protein": 22, "carbs": 60, "fat": 12 }',
+    snack:     '        { "type": "snack", "name": "meal name", "calories": 180, "protein": 8, "carbs": 22, "fat": 6 }',
+    dinner:    '        { "type": "dinner", "name": "meal name", "calories": 500, "protein": 24, "carbs": 55, "fat": 14 }',
+  };
+  const exampleTypes = mealsPerDay === 2
+    ? ["lunch", "dinner"]
+    : mealsPerDay >= 4
+      ? ["breakfast", "lunch", "snack", "dinner"]
+      : ["breakfast", "lunch", "dinner"];
+  const mealExample = exampleTypes.map((t) => EXAMPLE_ROW[t]).join(",\n");
+
   return `Generate a 7-day meal plan for this person:
 
 - Goal: ${profile.goal.replace(/_/g, " ")}
@@ -127,10 +214,10 @@ function buildUserPrompt(profile: ProfileShape): string {
 - Diet type: ${profile.diet_type.replace(/_/g, " ")}
 - Preferred cuisines: ${cuisineStr}
 - ${restrictionStr}
-${kitchenStr}
+${kitchenStr}${extraBlock}
 
 Rules:
-- 3 meals per day: breakfast, lunch, dinner
+- ${mealsRule}
 - ${dietRule(profile.diet_type)}
 - Each meal must match the cuisine preference
 - Spread calories and protein evenly across meals
@@ -145,9 +232,7 @@ Respond ONLY with valid JSON in this exact format, no extra text:
     {
       "day": 1,
       "meals": [
-        { "type": "breakfast", "name": "meal name", "calories": 320, "protein": 14, "carbs": 48, "fat": 8 },
-        { "type": "lunch", "name": "meal name", "calories": 480, "protein": 22, "carbs": 60, "fat": 12 },
-        { "type": "dinner", "name": "meal name", "calories": 500, "protein": 24, "carbs": 55, "fat": 14 }
+${mealExample}
       ],
       "total_calories": 1300,
       "total_protein": 60
@@ -165,7 +250,7 @@ Deno.serve(async (req) => {
   try {
     const { data: profile, error: profileError } = await g.supabase
       .from("profiles")
-      .select("goal, daily_calories, daily_protein, cuisines, diet_type, restrictions, kitchen_ingredients")
+      .select("goal, daily_calories, daily_protein, cuisines, diet_type, restrictions, kitchen_ingredients, region, meals_per_day, cooking_time, budget_tier, eats_out_frequency, allergies, medical_flags")
       .eq("id", g.userId)
       .single();
 
