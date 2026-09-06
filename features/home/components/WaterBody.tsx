@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import Svg, { Path, Circle, Defs, ClipPath, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Defs, ClipPath, G } from 'react-native-svg';
 import { Accelerometer } from 'expo-sensors';
 import { Plus, Minus } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -18,7 +18,7 @@ const H = 132;
 
 // An outlined figure that fills as water rises, per the reference. The head
 // is a separate circle so it shares the same clip and fills last.
-const HEAD = { cx: 42, cy: 15, r: 11.5 };
+const HEAD = { cx: 42.0, cy: 13.0, r: 10.0 };
 
 // Torso, arms down the sides, two legs — one closed shape. Kept simple on
 // purpose: at this size extra detail turns to mush.
@@ -26,11 +26,11 @@ const HEAD = { cx: 42, cy: 15, r: 11.5 };
 // two legs — plus the head circle. Kept separate rather than merged into one
 // path so every limb keeps its rounded caps; a single path forced sharp
 // joins wherever a limb met the torso.
-const TORSO = 'M36.5 32.0 H47.5 A9.5 9.5 0 0 1 57.0 41.5 V68.5 A9.5 9.5 0 0 1 47.5 78.0 H36.5 A9.5 9.5 0 0 1 27.0 68.5 V41.5 A9.5 9.5 0 0 1 36.5 32.0 Z';
-const ARM_L = 'M21.2 39.0 H21.2 A4.8 4.8 0 0 1 26.0 43.8 V80.2 A4.8 4.8 0 0 1 21.2 85.0 H21.2 A4.8 4.8 0 0 1 16.5 80.2 V43.8 A4.8 4.8 0 0 1 21.2 39.0 Z';
-const ARM_R = 'M62.8 39.0 H62.8 A4.8 4.8 0 0 1 67.5 43.8 V80.2 A4.8 4.8 0 0 1 62.8 85.0 H62.8 A4.8 4.8 0 0 1 58.0 80.2 V43.8 A4.8 4.8 0 0 1 62.8 39.0 Z';
-const LEG_L = 'M35.0 74.0 H35.5 A5.5 5.5 0 0 1 41.0 79.5 V118.5 A5.5 5.5 0 0 1 35.5 124.0 H35.0 A5.5 5.5 0 0 1 29.5 118.5 V79.5 A5.5 5.5 0 0 1 35.0 74.0 Z';
-const LEG_R = 'M48.5 74.0 H49.0 A5.5 5.5 0 0 1 54.5 79.5 V118.5 A5.5 5.5 0 0 1 49.0 124.0 H48.5 A5.5 5.5 0 0 1 43.0 118.5 V79.5 A5.5 5.5 0 0 1 48.5 74.0 Z';
+const TORSO = 'M38.0 21.0 H46.0 A8.5 8.5 0 0 1 54.5 29.5 V56.5 A8.5 8.5 0 0 1 46.0 65.0 H38.0 A8.5 8.5 0 0 1 29.5 56.5 V29.5 A8.5 8.5 0 0 1 38.0 21.0 Z';
+const ARM_L = 'M26.7 27.0 H26.7 A4.0 4.0 0 0 1 30.7 31.0 V67.0 A4.0 4.0 0 0 1 26.7 71.0 H26.7 A4.0 4.0 0 0 1 22.7 67.0 V31.0 A4.0 4.0 0 0 1 26.7 27.0 Z';
+const ARM_R = 'M57.3 27.0 H57.3 A4.0 4.0 0 0 1 61.3 31.0 V67.0 A4.0 4.0 0 0 1 57.3 71.0 H57.3 A4.0 4.0 0 0 1 53.3 67.0 V31.0 A4.0 4.0 0 0 1 57.3 27.0 Z';
+const LEG_L = 'M36.2 60.0 H36.2 A5.0 5.0 0 0 1 41.2 65.0 V117.0 A5.0 5.0 0 0 1 36.2 122.0 H36.2 A5.0 5.0 0 0 1 31.2 117.0 V65.0 A5.0 5.0 0 0 1 36.2 60.0 Z';
+const LEG_R = 'M47.8 60.0 H47.8 A5.0 5.0 0 0 1 52.8 65.0 V117.0 A5.0 5.0 0 0 1 47.8 122.0 H47.8 A5.0 5.0 0 0 1 42.8 117.0 V65.0 A5.0 5.0 0 0 1 47.8 60.0 Z';
 
 /**
  * Water level inside a body outline.
@@ -116,7 +116,10 @@ export function WaterBody({ glasses, target, onChange }: Props) {
 
         {/* Water, clipped to the figure. Back wave first, then front. */}
         <G clipPath="url(#figureClip)">
-          <Path d={wavePath(3.6, 34, 1.6)} fill={Colors.waterLight} opacity={0.8} />
+          {/* Solid body of water below the wave band. Without this the two
+              translucent waves left pale strips wherever they diverged. */}
+          <Rect x={-20} y={surfaceY + 5} width={W + 40} height={H} fill={Colors.water} />
+          <Path d={wavePath(3.6, 34, 1.6)} fill={Colors.waterLight} />
           <Path d={wavePath(2.6, 25, 0)}   fill={Colors.water} />
         </G>
       </Svg>
