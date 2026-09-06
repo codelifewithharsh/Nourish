@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Modal, Share, ActivityIndicator, Animated, Easing, Alert,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -24,6 +25,7 @@ import {
 import { EditLogModal, type EditableLog } from '@/features/nutrition/components/EditLogModal';
 import { AIError } from '@/lib/aiClient';
 import { localDateStr } from '@/lib/date';
+import { OPEN_GROCERY_LIST_EVENT, REGENERATE_PLAN_EVENT } from '@/lib/events';
 import { analytics } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -959,20 +961,38 @@ export default function MealsScreen() {
     }
   }, []);
 
+  // Resolves the user itself rather than closing over `userId`: the drawer
+  // can trigger this moments after navigating here, before the auth lookup
+  // has resolved, and bailing on a null id would look like nothing happened.
   const handleRegenerate = useCallback(async () => {
-    if (!userId || regenerating) return;
+    if (regenerating) return;
     setRegenerating(true);
     haptic.light();
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       await invoke('generate-meal-plan');
       analytics.planRegenerated();
-      await fetchData(userId);
+      await fetchData(user.id);
     } catch {
       // ProProvider surfaces 429 toast; stale plan stays visible on other errors
     } finally {
       setRegenerating(false);
     }
-  }, [userId, regenerating, fetchData, invoke]);
+  }, [regenerating, fetchData, invoke]);
+
+  // Actions triggered from the home drawer, which navigates here first and
+  // emits once this screen has had time to mount.
+  useEffect(() => {
+    const grocery = DeviceEventEmitter.addListener(OPEN_GROCERY_LIST_EVENT, () => {
+      analytics.groceryListOpened();
+      setGroceryOpen(true);
+    });
+    const regen = DeviceEventEmitter.addListener(REGENERATE_PLAN_EVENT, () => {
+      handleRegenerate();
+    });
+    return () => { grocery.remove(); regen.remove(); };
+  }, [handleRegenerate]);
 
   // Update a single meal in the plan (used when user swaps + toggles "update plan")
   const persistMealInPlan = useCallback(async (mealType: MealType, newMeal: Meal) => {
@@ -1051,7 +1071,14 @@ export default function MealsScreen() {
         <View style={s.headerRow}>
           <View style={s.header}>
             <Txt style={s.title}>Meal Plan</Txt>
-            <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+            {regenerating ? (
+              <View style={s.regenRow}>
+                <ActivityIndicator size="small" color={Colors.accent} />
+                <Txt style={s.regenBusyTxt}>Building a fresh plan…</Txt>
+              </View>
+            ) : (
+              <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+            )}
           </View>
           {plan && (
             <TouchableOpacity
@@ -1299,6 +1326,12 @@ const s = StyleSheet.create({
   emptyBody:      { fontSize: 14, color: Colors.secondary, lineHeight: 20, textAlign: 'center' },
   generateBtn:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, height: 48, paddingHorizontal: 24, backgroundColor: Colors.accent, borderRadius: 14 },
   generateBtnTxt: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', lineHeight: 20 },
+
+  // Regeneration takes ~30s. Triggered from the drawer there's no button to
+  // spin, so the subtitle carries the progress instead of the screen looking
+  // inert.
+  regenRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  regenBusyTxt:     { fontSize: 13, color: Colors.accent, fontWeight: '600', lineHeight: 18 },
 
   regenBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
   regenBtnDisabled: { opacity: 0.5 },

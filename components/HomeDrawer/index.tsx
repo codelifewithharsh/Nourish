@@ -8,13 +8,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   User as UserIcon, Bell, BookOpen, MessageSquareHeart,
-  Settings, ChevronRight, LogOut, Flame,
+  Settings, ChevronRight, LogOut, Flame, ShoppingCart, Sparkles,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { SCROLL_TO_SECTION_EVENT } from '@/lib/events';
+import {
+  SCROLL_TO_SECTION_EVENT, OPEN_GROCERY_LIST_EVENT, REGENERATE_PLAN_EVENT,
+} from '@/lib/events';
 import { OGAvatar } from '@/features/pro';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -182,13 +184,45 @@ export function HomeDrawer({
               <ChevronRight size={17} color="rgba(255,255,255,0.85)" strokeWidth={2.2} />
             </TouchableOpacity>
 
+            {/* ── Your plan ── */}
+            {/* Plain navigation to the Plan tab isn't worth a row — the tab
+                bar already does that in one tap. These two are the actions
+                buried inside it: the grocery list behind a header icon, and
+                regeneration, which is otherwise only reachable when no plan
+                exists at all. */}
+            <View style={d.section}>
+              <Txt style={d.sectionLabel}>Your plan</Txt>
+              <DrawerItem
+                icon={<ShoppingCart size={18} color={Colors.accent} strokeWidth={2.2} />}
+                label="Grocery list"
+                hint="Everything this week's plan needs"
+                onPress={() => {
+                  haptic.light();
+                  close();
+                  setTimeout(() => {
+                    router.push('/(tabs)/meals');
+                    setTimeout(() => DeviceEventEmitter.emit(OPEN_GROCERY_LIST_EVENT), 400);
+                  }, 250);
+                }}
+              />
+              <DrawerItem
+                icon={<Sparkles size={18} color={Colors.accent} strokeWidth={2.2} />}
+                label="Regenerate plan"
+                hint="Build a fresh 7-day plan"
+                onPress={() => {
+                  haptic.light();
+                  close();
+                  setTimeout(() => {
+                    router.push('/(tabs)/meals');
+                    setTimeout(() => DeviceEventEmitter.emit(REGENERATE_PLAN_EVENT), 400);
+                  }, 250);
+                }}
+              />
+            </View>
+
             {/* ── Quick links ── */}
             <View style={d.section}>
               <Txt style={d.sectionLabel}>Quick links</Txt>
-
-              {/* "My meal plan" and "Log what I ate" both lived here and both
-                  now land on the Plan tab, which is one tap away in the tab
-                  bar — two rows that repeated each other and the navigation. */}
               <DrawerItem
                 icon={<Bell size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Notifications"
