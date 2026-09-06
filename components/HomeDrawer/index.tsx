@@ -255,7 +255,7 @@ export function HomeDrawer({
               <Txt style={d.signOutTxt}>Sign out</Txt>
             </TouchableOpacity>
 
-            <Txt style={d.version}>Nourish v1.0</Txt>
+            <Txt style={d.version}>Nourish v1.1</Txt>
 
           </ScrollView>
         </Animated.View>
