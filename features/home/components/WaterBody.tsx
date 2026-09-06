@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import Svg, { Path, Circle, Rect, Defs, ClipPath, G } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, ClipPath, G } from 'react-native-svg';
 import { Accelerometer } from 'expo-sensors';
 import { Plus, Minus } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -13,24 +13,49 @@ interface Props {
   onChange: (glasses: number) => void;
 }
 
-const W = 84;
-const H = 132;
+const W = 96;
+const H = 172;
 
 // An outlined figure that fills as water rises, per the reference. The head
 // is a separate circle so it shares the same clip and fills last.
-const HEAD = { cx: 42.0, cy: 13.0, r: 10.0 };
+const HEAD = { cx: 48, cy: 16, r: 12.5 };
 
 // Torso, arms down the sides, two legs — one closed shape. Kept simple on
 // purpose: at this size extra detail turns to mush.
-// Figure built from the reference as five rounded shapes — torso, two arms,
-// two legs — plus the head circle. Kept separate rather than merged into one
-// path so every limb keeps its rounded caps; a single path forced sharp
-// joins wherever a limb met the torso.
-const TORSO = 'M38.0 21.0 H46.0 A8.5 8.5 0 0 1 54.5 29.5 V56.5 A8.5 8.5 0 0 1 46.0 65.0 H38.0 A8.5 8.5 0 0 1 29.5 56.5 V29.5 A8.5 8.5 0 0 1 38.0 21.0 Z';
-const ARM_L = 'M26.7 27.0 H26.7 A4.0 4.0 0 0 1 30.7 31.0 V67.0 A4.0 4.0 0 0 1 26.7 71.0 H26.7 A4.0 4.0 0 0 1 22.7 67.0 V31.0 A4.0 4.0 0 0 1 26.7 27.0 Z';
-const ARM_R = 'M57.3 27.0 H57.3 A4.0 4.0 0 0 1 61.3 31.0 V67.0 A4.0 4.0 0 0 1 57.3 71.0 H57.3 A4.0 4.0 0 0 1 53.3 67.0 V31.0 A4.0 4.0 0 0 1 57.3 27.0 Z';
-const LEG_L = 'M36.2 60.0 H36.2 A5.0 5.0 0 0 1 41.2 65.0 V117.0 A5.0 5.0 0 0 1 36.2 122.0 H36.2 A5.0 5.0 0 0 1 31.2 117.0 V65.0 A5.0 5.0 0 0 1 36.2 60.0 Z';
-const LEG_R = 'M47.8 60.0 H47.8 A5.0 5.0 0 0 1 52.8 65.0 V117.0 A5.0 5.0 0 0 1 47.8 122.0 H47.8 A5.0 5.0 0 0 1 42.8 117.0 V65.0 A5.0 5.0 0 0 1 47.8 60.0 Z';
+const FIGURE = `
+  M48 34
+  C56 34 62 38 64 44
+  L67 56
+  C68 60 69 64 69 68
+  L70 96
+  C70 100 68 102 65 102
+  C62 102 60 100 60 96
+  L59 70
+  L58 70
+  L58 106
+  C58 112 57 118 57 124
+  L55 162
+  C55 167 52 170 49 170
+  C46 170 44 167 44 162
+  L46 126
+  L48 112
+  L50 126
+  L52 162
+  C52 167 50 170 47 170
+  C44 170 41 167 41 162
+  L39 124
+  C39 118 38 112 38 106
+  L38 70
+  L37 70
+  L36 96
+  C36 100 34 102 31 102
+  C28 102 26 100 26 96
+  L27 68
+  C27 64 28 60 29 56
+  L32 44
+  C34 38 40 34 48 34
+  Z
+`;
 
 /**
  * Water level inside a body outline.
@@ -99,27 +124,18 @@ export function WaterBody({ glasses, target, onChange }: Props) {
       <Svg width={W} height={H} style={s.figure}>
         <Defs>
           <ClipPath id="figureClip">
+            <Path d={FIGURE} />
             <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} />
-            <Path d={TORSO} />
-            <Path d={ARM_L} /><Path d={ARM_R} />
-            <Path d={LEG_L} /><Path d={LEG_R} />
           </ClipPath>
         </Defs>
 
-        {/* Empty figure */}
-        <G fill={Colors.waterEmpty}>
-          <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} />
-          <Path d={TORSO} />
-          <Path d={ARM_L} /><Path d={ARM_R} />
-          <Path d={LEG_L} /><Path d={LEG_R} />
-        </G>
+        {/* Empty outline */}
+        <Path d={FIGURE} fill="none" stroke={Colors.water} strokeWidth={2.5} />
+        <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} fill="none" stroke={Colors.water} strokeWidth={2.5} />
 
         {/* Water, clipped to the figure. Back wave first, then front. */}
         <G clipPath="url(#figureClip)">
-          {/* Solid body of water below the wave band. Without this the two
-              translucent waves left pale strips wherever they diverged. */}
-          <Rect x={-20} y={surfaceY + 5} width={W + 40} height={H} fill={Colors.water} />
-          <Path d={wavePath(3.6, 34, 1.6)} fill={Colors.waterLight} />
+          <Path d={wavePath(3.6, 34, 1.6)} fill={Colors.waterLight} opacity={0.8} />
           <Path d={wavePath(2.6, 25, 0)}   fill={Colors.water} />
         </G>
       </Svg>
