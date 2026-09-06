@@ -46,8 +46,8 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing]   = useState(false);
   const insets = useSafeAreaInsets();
   // FloatingTabBar is absolutely positioned, so content must reserve its
-  // height itself: 60px pill + 14px camera lift + 8px wrapper + safe area.
-  const tabBarClearance = 82 + insets.bottom + 24;
+  // height itself: 62px pill + 10px wrapper padding + safe area + breathing room.
+  const tabBarClearance = 72 + insets.bottom + 24;
 
   useFocusEffect(useCallback(() => {
     analytics.screenViewed({ screen: 'home' });

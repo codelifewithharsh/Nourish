@@ -6,100 +6,101 @@ import { Home, CalendarDays, Camera, User } from 'lucide-react-native';
 import { LucideIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { haptic } from '@/lib/haptics';
-import { Txt } from './Typography';
 
 type TabName = 'index' | 'meals' | 'log' | 'profile';
 
+/** The subset of a tab route this component touches. */
+interface Route { key: string; name: string }
+
 interface TabConfig {
   label: string;
-  Icon: LucideIcon;
+  Icon:  LucideIcon;
 }
 
-const TAB_CONFIG: Record<TabName, TabConfig> = {
-  index: { label: 'Home', Icon: Home },
-  meals: { label: 'Plan', Icon: CalendarDays },
-  log: { label: 'Log', Icon: Camera },
-  profile: { label: 'You', Icon: User },
+// Three navigation tabs live inside the pill. `log` is deliberately not one
+// of them — it's the detached circle to the right, because logging a meal is
+// something you *do*, not a place you go.
+const TAB_CONFIG: Record<Exclude<TabName, 'log'>, TabConfig> = {
+  index:   { label: 'Home', Icon: Home },
+  meals:   { label: 'Plan', Icon: CalendarDays },
+  profile: { label: 'Me',   Icon: User },
 };
 
-// Logging is the one action the whole app exists for, so it gets a raised
-// button in the middle of the bar rather than an equal-weight tab. The route
-// is still 'log' — this only changes how it's presented.
-const CAMERA_TAB: TabName = 'log';
+const ACTION_TAB: TabName = 'log';
 
-export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
+  const navTabs     = (state.routes as Route[]).filter((r) => r.name !== ACTION_TAB);
+  const actionRoute = (state.routes as Route[]).find((r) => r.name === ACTION_TAB);
+
+  const go = (routeName: string, key: string, focused: boolean) => {
+    const event = navigation.emit({ type: 'tabPress', target: key, canPreventDefault: true });
+    if (!focused && !event.defaultPrevented) navigation.navigate(routeName);
+  };
+
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 8 }]}>
-      <View style={styles.container}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const config = TAB_CONFIG[route.name as TabName];
-          if (!config) return null;
+    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 10 }]}>
+      <View style={styles.row}>
+        {/* Navigation pill */}
+        <View style={styles.pill}>
+          {navTabs.map((route: Route) => {
+            const config = TAB_CONFIG[route.name as Exclude<TabName, 'log'>];
+            if (!config) return null;
+            const routeIndex = (state.routes as Route[]).findIndex((r) => r.key === route.key);
+            // The action route lives outside the pill, so while it's open no
+            // tab would be lit and the bar would read as "nowhere". Home is
+            // the conceptual parent of logging, so it stays lit.
+            const actionFocused = (state.routes as Route[])[state.index]?.name === ACTION_TAB;
+            const isFocused = actionFocused
+              ? route.name === 'index'
+              : state.index === routeIndex;
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({ type: 'tabLongPress', target: route.key });
-          };
-
-          if (route.name === CAMERA_TAB) {
             return (
               <TouchableOpacity
                 key={route.key}
-                onPress={() => { haptic.medium(); onPress(); }}
-                onLongPress={onLongPress}
-                activeOpacity={0.85}
+                onPress={() => { haptic.light(); go(route.name, route.key, isFocused); }}
+                activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Log a meal with your camera"
+                accessibilityLabel={config.label}
                 accessibilityState={isFocused ? { selected: true } : {}}
+                style={styles.tabItem}
               >
-                <View style={[styles.cameraBtn, isFocused && styles.cameraBtnFocused]}>
-                  <config.Icon size={24} color="#FFFFFF" strokeWidth={2.4} />
+                <View style={[styles.iconWrap, isFocused && styles.iconWrapActive]}>
+                  <config.Icon
+                    size={22}
+                    color={isFocused ? '#FFFFFF' : '#9A9A9A'}
+                    strokeWidth={isFocused ? 2.4 : 1.9}
+                  />
                 </View>
               </TouchableOpacity>
             );
-          }
+          })}
+        </View>
 
+        {/* Detached action button */}
+        {actionRoute && (() => {
+          const routeIndex = (state.routes as Route[]).findIndex((r) => r.key === actionRoute.key);
+          const isFocused  = state.index === routeIndex;
           return (
             <TouchableOpacity
-              key={route.key}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              activeOpacity={0.7}
+              onPress={() => { haptic.medium(); go(actionRoute.name, actionRoute.key, isFocused); }}
+              activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel}
+              accessibilityLabel="Log a meal with your camera"
+              style={[styles.actionBtn, isFocused && styles.actionBtnActive]}
             >
-              <View style={isFocused ? styles.pillFocused : styles.pillInactive}>
-                <config.Icon
-                  size={22}
-                  color={isFocused ? '#FFFFFF' : '#8E8E93'}
-                  strokeWidth={isFocused ? 2.5 : 1.8}
-                />
-                {isFocused && (
-                  <Txt variant="labelBold" color="#FFFFFF" style={styles.label}>
-                    {config.label}
-                  </Txt>
-                )}
-              </View>
+              <Camera size={25} color="#FFFFFF" strokeWidth={2.3} />
             </TouchableOpacity>
           );
-        })}
+        })()}
       </View>
     </View>
   );
 }
+
+const PILL_HEIGHT = 62;
+const ACTION_SIZE = 62;
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -111,59 +112,52 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     pointerEvents: 'box-none',
   },
-  container: {
+  row: {
     flexDirection: 'row',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     alignItems: 'center',
-    alignSelf: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    elevation: 12,
     gap: 10,
   },
-  pillFocused: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.accent,
-    gap: 8,
+    height: PILL_HEIGHT,
+    paddingHorizontal: 10,
+    borderRadius: PILL_HEIGHT / 2,
+    backgroundColor: Colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  pillInactive: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
+  tabItem: {
+    paddingHorizontal: 4,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {
-    fontSize: 15,
+  iconWrapActive: {
+    backgroundColor: Colors.accent,
   },
-  cameraBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  actionBtn: {
+    width: ACTION_SIZE,
+    height: ACTION_SIZE,
+    borderRadius: ACTION_SIZE / 2,
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    // Lifts the button out of the pill so it reads as the primary action.
-    marginTop: -14,
-    borderWidth: 4,
-    borderColor: '#1A1A1A',
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  cameraBtnFocused: {
+  actionBtnActive: {
     backgroundColor: '#245C43',
   },
 });
