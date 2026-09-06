@@ -15,6 +15,7 @@ import { IntakeCard } from '@/features/home/components/IntakeCard';
 import { NutritionsCard, NUTRIENT_COLORS } from '@/features/home/components/NutritionsCard';
 import { WaterBody } from '@/features/home/components/WaterBody';
 import { NextMealCard } from '@/features/home/components/NextMealCard';
+import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
@@ -48,6 +49,7 @@ export default function TodayScreen() {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
   const [loggingMeal, setLoggingMeal] = useState(false);
+  const [swapOpen, setSwapOpen]       = useState(false);
   const insets = useSafeAreaInsets();
   // FloatingTabBar is absolutely positioned, so content must reserve its
   // height itself: 62px pill + 10px wrapper padding + safe area + breathing room.
@@ -88,6 +90,33 @@ export default function TodayScreen() {
         calories:  data.nextMeal.calories,
         protein:   data.nextMeal.protein,
       });
+      refresh();
+    } finally {
+      setLoggingMeal(false);
+    }
+  }, [userId, data, refresh]);
+
+  // A swapped meal is logged as eaten straight away. Persisting the swap back
+  // into the plan happens on the Plan tab, which owns that blob.
+  const handleSwapConfirm = useCallback(async (result: SwapResult) => {
+    setSwapOpen(false);
+    if (!userId || !data?.nextMeal) return;
+    setLoggingMeal(true);
+    try {
+      const { error } = await supabase.from('daily_logs').insert({
+        user_id:   userId,
+        date:      todayStr(),
+        meal_type: data.nextMeal.type,
+        meal_name: result.name,
+        calories:  result.calories,
+        protein:   result.protein,
+        carbs:     result.carbs,
+        fat:       result.fat,
+        source:    'plan',
+      });
+      if (error) { Alert.alert('Could not log', 'Please try again.'); return; }
+      analytics.mealSwapped({ meal_type: data.nextMeal.type });
+      analytics.mealLogged({ meal_type: data.nextMeal.type, calories: result.calories, protein: result.protein });
       refresh();
     } finally {
       setLoggingMeal(false);
@@ -196,7 +225,12 @@ export default function TodayScreen() {
             meal={nextMeal}
             logging={loggingMeal}
             onLog={logPlannedMeal}
-            onPress={() => router.push({
+            onSwap={() => {
+              analytics.swapModalOpened({ meal_type: nextMeal.type, source: 'home' });
+              setSwapOpen(true);
+            }}
+            onScan={() => router.push('/(tabs)/log')}
+            onView={() => router.push({
               pathname: '/recipe/[id]',
               params: {
                 id: encodeURIComponent(nextMeal.name),
@@ -230,6 +264,14 @@ export default function TodayScreen() {
         )}
 
       </ScrollView>
+
+      <SwapMealModal
+        visible={swapOpen}
+        mealType={data.nextMeal?.type ?? ''}
+        currentMealName={data.nextMeal?.name ?? ''}
+        onCancel={() => setSwapOpen(false)}
+        onConfirm={(result) => handleSwapConfirm(result)}
+      />
 
       <HomeDrawer
         visible={drawerOpen}

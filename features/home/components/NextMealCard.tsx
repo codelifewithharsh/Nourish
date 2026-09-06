@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { Check } from 'lucide-react-native';
+import { Check, Sparkles, Camera } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { useAI } from '@/features/pro';
@@ -12,14 +12,26 @@ export interface NextMeal {
   name:     string;
   calories: number;
   protein:  number;
+  carbs?:   number;
+  fat?:     number;
 }
 
 interface Props {
   meal:     NextMeal;
   logging:  boolean;
   onLog:    () => void;
-  onPress?: () => void;
+  onSwap:   () => void;
+  onScan:   () => void;
+  onView?:  () => void;
 }
+
+// Mirrors the Plan tab so a meal looks the same wherever it appears.
+const MEAL_COLOR: Record<string, string> = {
+  breakfast: Colors.accent,
+  lunch:     '#E6A817',
+  dinner:    '#7B5EA7',
+  snack:     '#E05A6B',
+};
 
 const MEAL_LABEL: Record<string, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack',
@@ -29,18 +41,46 @@ const MEAL_EMOJI: Record<string, string> = {
   breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍎',
 };
 
+const MEAL_TIME_HINT: Record<string, string> = {
+  breakfast: '7 – 10 AM', lunch: '12 – 2 PM', dinner: '7 – 9 PM', snack: '4 – 6 PM',
+};
+
+function MacroPill({
+  value, unit, color, prominent,
+}: { value: string; unit: string; color: string; prominent?: boolean }) {
+  return (
+    <View style={[mp.wrap, { backgroundColor: color + (prominent ? '20' : '12') }]}>
+      <Txt style={[mp.value, { color }]}>{value}</Txt>
+      <Txt style={[mp.unit, { color: color + 'C0' }]}>{unit}</Txt>
+    </View>
+  );
+}
+
+const mp = StyleSheet.create({
+  wrap:  { flexDirection: 'row', alignItems: 'baseline', gap: 3, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 9 },
+  value: { fontSize: 12, fontWeight: '800', lineHeight: 16 },
+  unit:  { fontSize: 10, fontWeight: '600', lineHeight: 14 },
+});
+
 /**
- * The next planned meal, with a picture of the dish.
+ * The next planned meal on the dashboard.
  *
- * Images come from `dish-image`, which generates once per dish and caches the
- * result globally — so the first user to reach a dish pays for it and everyone
- * after that gets it free. While it loads, and if it fails, the card falls
- * back to a tinted panel with the meal emoji rather than an empty gap.
+ * Deliberately built to the Plan tab's meal card — same stripe, label, macro
+ * pills and button shapes — so the same meal doesn't look like two different
+ * things in two places. What it adds is a picture of the dish and a third
+ * action for when the user ate something other than the plan.
+ *
+ * Images come from `dish-image`, generated once per dish and cached globally.
+ * While it loads, or if it fails, the header collapses to a tinted band —
+ * a missing picture is decoration, not information.
  */
-export function NextMealCard({ meal, logging, onLog, onPress }: Props) {
+export function NextMealCard({ meal, logging, onLog, onSwap, onScan, onView }: Props) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [failed, setFailed]     = useState(false);
   const invoke = useAI();
+
+  const color = MEAL_COLOR[meal.type] ?? Colors.accent;
+  const emoji = MEAL_EMOJI[meal.type] ?? '🍽️';
 
   useEffect(() => {
     let cancelled = false;
@@ -49,109 +89,145 @@ export function NextMealCard({ meal, logging, onLog, onPress }: Props) {
 
     invoke<{ url: string }>('dish-image', { meal_name: meal.name })
       .then((res) => { if (!cancelled) setImageUrl(res.url); })
-      // A missing picture must never break the card — it is decoration, not
-      // information. Rate limits land here too and are handled the same way.
       .catch(() => { if (!cancelled) setFailed(true); });
 
     return () => { cancelled = true; };
   }, [meal.name, invoke]);
 
   return (
-    <View style={s.card}>
-      <TouchableOpacity activeOpacity={onPress ? 0.9 : 1} onPress={onPress} disabled={!onPress}>
-        <View style={s.imageWrap}>
+    <View style={mc.card}>
+      <View style={[mc.stripe, { backgroundColor: color }]} />
+
+      {/* Dish image */}
+      <TouchableOpacity activeOpacity={onView ? 0.92 : 1} onPress={onView} disabled={!onView}>
+        <View style={mc.imageWrap}>
           {imageUrl && !failed ? (
             <Image
               source={{ uri: imageUrl }}
-              style={s.image}
+              style={mc.image}
               contentFit="cover"
               transition={220}
               onError={() => setFailed(true)}
             />
           ) : (
-            <View style={s.placeholder}>
+            <View style={[mc.imageFallback, { backgroundColor: color + '14' }]}>
               {failed
-                ? <Txt style={s.placeholderEmoji}>{MEAL_EMOJI[meal.type] ?? '🍽️'}</Txt>
-                : <ActivityIndicator size="small" color={Colors.accent} />}
+                ? <Txt style={mc.fallbackEmoji}>{emoji}</Txt>
+                : <ActivityIndicator size="small" color={color} />}
             </View>
           )}
-
-          <View style={s.badge}>
-            <Txt style={s.badgeTxt}>
-              {MEAL_EMOJI[meal.type] ?? '🍽️'}  {MEAL_LABEL[meal.type] ?? 'Up next'}
-            </Txt>
-          </View>
-        </View>
-
-        <View style={s.body}>
-          <Txt style={s.name} numberOfLines={2}>{meal.name}</Txt>
-          <View style={s.metaRow}>
-            <View style={s.metaChip}>
-              <Txt style={s.metaTxt}>{meal.calories} kcal</Txt>
-            </View>
-            <View style={s.metaChip}>
-              <Txt style={s.metaTxt}>{meal.protein}g protein</Txt>
-            </View>
+          <View style={mc.nextBadge}>
+            <View style={[mc.nextDot, { backgroundColor: color }]} />
+            <Txt style={[mc.nextTxt, { color }]}>Up next</Txt>
           </View>
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[s.logBtn, logging && s.logBtnBusy]}
-        onPress={() => { haptic.success(); onLog(); }}
-        activeOpacity={0.85}
-        disabled={logging}
-      >
-        {logging
-          ? <ActivityIndicator size="small" color="#FFFFFF" />
-          : <>
-              <Check size={18} color="#FFFFFF" strokeWidth={2.6} />
-              <Txt style={s.logTxt}>I ate this</Txt>
-            </>}
-      </TouchableOpacity>
+      <View style={mc.body}>
+        {/* Meal type + time hint */}
+        <View style={mc.topLeft}>
+          <Txt style={mc.emoji}>{emoji}</Txt>
+          <View>
+            <Txt style={[mc.label, { color }]}>{MEAL_LABEL[meal.type] ?? 'Next'}</Txt>
+            <Txt style={mc.time}>{MEAL_TIME_HINT[meal.type] ?? ''}</Txt>
+          </View>
+        </View>
+
+        {/* Name */}
+        <TouchableOpacity onPress={onView} activeOpacity={0.7} style={mc.nameWrap} disabled={!onView}>
+          <Txt style={mc.name}>{meal.name}</Txt>
+          {onView && <Txt style={[mc.viewRecipe, { color }]}>View recipe →</Txt>}
+        </TouchableOpacity>
+
+        {/* Macros */}
+        <View style={mc.macroRow}>
+          <MacroPill value={`${meal.calories}`} unit="kcal" color={color} prominent />
+          <MacroPill value={`${meal.protein}g`} unit="protein" color="#5B8DB8" />
+          {meal.carbs != null && <MacroPill value={`${meal.carbs}g`} unit="carbs" color="#E6A817" />}
+          {meal.fat   != null && <MacroPill value={`${meal.fat}g`}   unit="fat"   color="#9B59B6" />}
+        </View>
+
+        {/* Actions */}
+        <View style={mc.btns}>
+          <TouchableOpacity
+            style={[mc.btnLog, { backgroundColor: color }]}
+            activeOpacity={0.88}
+            onPress={() => { haptic.success(); onLog(); }}
+            disabled={logging}
+          >
+            {logging
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <>
+                  <Check size={16} color="#FFFFFF" strokeWidth={3} />
+                  <Txt style={mc.btnLogTxt}>Log it</Txt>
+                </>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[mc.btnGhost, { borderColor: color }]}
+            activeOpacity={0.85}
+            onPress={() => { haptic.light(); onSwap(); }}
+          >
+            <Sparkles size={14} color={color} strokeWidth={2.5} />
+            <Txt style={[mc.btnGhostTxt, { color }]}>Swap</Txt>
+          </TouchableOpacity>
+
+          {/* For when they ate something other than the plan. */}
+          <TouchableOpacity
+            style={[mc.btnGhost, { borderColor: color }]}
+            activeOpacity={0.85}
+            onPress={() => { haptic.medium(); onScan(); }}
+          >
+            <Camera size={14} color={color} strokeWidth={2.5} />
+            <Txt style={[mc.btnGhostTxt, { color }]}>Scan</Txt>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const mc = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-  imageWrap:   { position: 'relative' },
-  image:       { width: '100%', height: 168, backgroundColor: Colors.background },
-  placeholder: {
-    width: '100%', height: 168,
-    backgroundColor: Colors.accentLight,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  placeholderEmoji: { fontSize: 44 },
-  badge: {
-    position: 'absolute', top: 12, left: 12,
-    paddingHorizontal: 11, paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-  },
-  badgeTxt: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-
-  body:     { paddingHorizontal: 18, paddingTop: 14 },
-  name:     { fontSize: 18, fontWeight: '700', color: Colors.primary, lineHeight: 24 },
-  metaRow:  { flexDirection: 'row', gap: 8, marginTop: 10 },
-  metaChip: {
-    paddingHorizontal: 11, paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: Colors.background,
-  },
-  metaTxt:  { fontSize: 12.5, fontWeight: '600', color: Colors.secondary },
-
-  logBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    margin: 18, marginTop: 14,
-    paddingVertical: 15,
     borderRadius: 18,
-    backgroundColor: Colors.accent,
+    overflow: 'hidden',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  logBtnBusy: { opacity: 0.7 },
-  logTxt:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, zIndex: 1 },
+
+  imageWrap:     { position: 'relative' },
+  image:         { width: '100%', height: 150, backgroundColor: Colors.background },
+  imageFallback: { width: '100%', height: 150, alignItems: 'center', justifyContent: 'center' },
+  fallbackEmoji: { fontSize: 40 },
+  nextBadge: {
+    position: 'absolute', top: 10, right: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 999, paddingVertical: 4, paddingHorizontal: 9,
+  },
+  nextDot: { width: 6, height: 6, borderRadius: 3 },
+  nextTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
+
+  body:    { padding: 16, paddingLeft: 20, gap: 10 },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emoji:   { fontSize: 22, lineHeight: 28 },
+  label:   { fontSize: 13, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 17 },
+  time:    { fontSize: 11, color: Colors.secondary, lineHeight: 14 },
+
+  nameWrap:   { gap: 3 },
+  name:       { fontSize: 18, fontWeight: '700', color: Colors.primary, lineHeight: 24, letterSpacing: -0.2 },
+  viewRecipe: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2, lineHeight: 14 },
+
+  macroRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+
+  btns:        { flexDirection: 'row', gap: 8, marginTop: 4 },
+  btnLog:      { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 12 },
+  btnLogTxt:   { fontSize: 14, fontWeight: '700', color: '#FFFFFF', lineHeight: 20 },
+  btnGhost:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, height: 44, borderRadius: 12, borderWidth: 1.5, backgroundColor: Colors.surface },
+  btnGhostTxt: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
 });
