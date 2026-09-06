@@ -11,7 +11,7 @@ import { analytics, resetUser } from '@/lib/analytics';
 import { ProProvider } from '@/features/pro';
 import { PhotoLogProvider } from '@/features/nutrition/PhotoLogProvider';
 import { ScrollProvider } from '@/features/nutrition/ScrollContext';
-import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
+import { WATER_ACTION_ID, registerPushToken, applyWaterRemindersOffDefault } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -67,6 +67,9 @@ export default function RootLayout() {
     // Hold the splash until either content first-paints (via releaseSplash)
     // or this safety cutoff fires.
     armSplashGate(2000);
+
+    // Water reminders now default to off. Runs once per install.
+    applyWaterRemindersOffDefault();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {

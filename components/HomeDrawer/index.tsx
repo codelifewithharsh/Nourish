@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   User as UserIcon, Bell, BookOpen, MessageSquareHeart,
-  Settings, ChevronRight, LogOut, Flame, Calendar, Sparkles,
+  Settings, ChevronRight, LogOut, Flame,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
@@ -186,18 +186,9 @@ export function HomeDrawer({
             <View style={d.section}>
               <Txt style={d.sectionLabel}>Quick links</Txt>
 
-              <DrawerItem
-                icon={<Calendar size={18} color={Colors.accent} strokeWidth={2.2} />}
-                label="My meal plan"
-                hint="Today's plan & 7-day view"
-                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/meals'), 250); }}
-              />
-              <DrawerItem
-                icon={<Sparkles size={18} color={Colors.accent} strokeWidth={2.2} />}
-                label="Log what I ate"
-                hint="Scan a photo or describe it"
-                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/meals'), 250); }}
-              />
+              {/* "My meal plan" and "Log what I ate" both lived here and both
+                  now land on the Plan tab, which is one tap away in the tab
+                  bar — two rows that repeated each other and the navigation. */}
               <DrawerItem
                 icon={<Bell size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Notifications"

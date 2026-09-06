@@ -76,7 +76,7 @@ export function WaterBody({ glasses, target, onChange }: Props) {
   // Wave motion runs independently of the sensor so the water is alive even
   // on a device lying flat on a table.
   useEffect(() => {
-    const id = setInterval(() => setPhase((p) => (p + 0.12) % (Math.PI * 2)), 70);
+    const id = setInterval(() => setPhase((p) => (p + 0.22) % (Math.PI * 2)), 45);
     return () => clearInterval(id);
   }, []);
 
@@ -84,11 +84,18 @@ export function WaterBody({ glasses, target, onChange }: Props) {
     if (Platform.OS === 'web') return;
     let sub: { remove: () => void } | undefined;
     try {
-      Accelerometer.setUpdateInterval(120);
+      // Sampled and eased faster than the wave loop: a tilt the surface
+      // answers late reads as lag rather than liquid.
+      Accelerometer.setUpdateInterval(50);
       sub = Accelerometer.addListener(({ x }) => {
-        const clamped = Math.max(-0.6, Math.min(0.6, x));
-        const next    = clamped * 16;
-        const eased   = lastTilt.current + (next - lastTilt.current) * 0.25;
+        // x is gravity along the screen's horizontal axis: 0 when upright,
+        // ±1 on its side. Clamped near a half-g so an upside-down phone
+        // doesn't produce an absurd angle, then mapped to degrees.
+        const clamped = Math.max(-0.7, Math.min(0.7, x));
+        const target  = clamped * 45;
+        // Light smoothing only — enough to take the jitter off the raw
+        // signal without visibly trailing the phone.
+        const eased   = lastTilt.current + (target - lastTilt.current) * 0.45;
         lastTilt.current = eased;
         setTilt(eased);
       });
@@ -104,16 +111,28 @@ export function WaterBody({ glasses, target, onChange }: Props) {
   // Two waves of different wavelength, amplitude and offset. Where they
   // overlap the crests reinforce and cancel, which is what stops the surface
   // looking mechanical.
-  const wavePath = (amp: number, len: number, shift: number) => {
-    const dy = Math.tan((tilt * Math.PI) / 180) * (W / 2);
+  const wavePath = (amp: number, len: number, shift: number, speed = 1) => {
+    // Damped as the figure fills: a nearly-full container has little room to
+    // slosh, and without this a steep tilt at 100% would drop one side of the
+    // surface below the head and leave it visibly unfilled.
+    const headroom = Math.min(1, Math.max(0, 1 - ratio));
+    const damping  = 0.25 + 0.75 * headroom;
+
+    // Water stays level in the world while the figure rotates with the phone,
+    // so in the figure's own coordinates the surface tilts by the same angle
+    // the phone does. Tilting the phone right lifts the left side of the
+    // surface, hence the positive lean across x.
+    const dy = Math.tan((tilt * Math.PI) / 180) * (W / 2) * damping;
     let d = '';
     for (let x = -20; x <= W + 20; x += 4) {
-      const t    = (x / len) * Math.PI * 2 + phase + shift;
-      const lean = ((x - W / 2) / (W / 2)) * -dy;
+      const t    = (x / len) * Math.PI * 2 + phase * speed + shift;
+      const lean = ((x - W / 2) / (W / 2)) * dy;
       const y    = surfaceY + lean + Math.sin(t) * amp;
       d += `${x === -20 ? 'M' : ' L'}${x} ${y}`;
     }
-    d += ` L${W + 20} ${H + 30} L-20 ${H + 30} Z`;
+    // Extended well past the figure on both sides so a steep tilt can't
+    // expose a corner: at 45° the surface moves ~48 units across the width.
+    d += ` L${W + 20} ${H + 140} L-20 ${H + 140} Z`;
     return d;
   };
 
@@ -138,8 +157,11 @@ export function WaterBody({ glasses, target, onChange }: Props) {
 
         {/* Water, clipped to the figure. Back wave first, then front. */}
         <G clipPath="url(#figureClip)">
-          <Path d={wavePath(3.6, 34, 1.6)} fill={Colors.waterLight} opacity={0.8} />
-          <Path d={wavePath(2.6, 25, 0)}   fill={Colors.water} />
+          {/* Different speeds as well as wavelengths: in lockstep the two
+              crests keep a fixed offset and the surface reads as one rigid
+              shape sliding sideways. */}
+          <Path d={wavePath(3.6, 34, 1.6, 0.65)} fill={Colors.waterLight} opacity={0.8} />
+          <Path d={wavePath(2.6, 25, 0,   1)}    fill={Colors.water} />
         </G>
       </Svg>
 
