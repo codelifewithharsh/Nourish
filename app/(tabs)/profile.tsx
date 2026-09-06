@@ -906,7 +906,7 @@ export default function YouScreen() {
           {/* ── Meet the founder ── */}
           <FounderCard />
 
-          <Txt style={s.version}>Nourish · v1.0</Txt>
+          <Txt style={s.version}>Nourish · v1.1</Txt>
         </ScrollView>
       </KeyboardAvoidingView>
 
