@@ -44,19 +44,21 @@ export function IntakeCard({ eaten, target }: Props) {
       <View style={s.gaugeWrap}>
         <Svg width={SIZE} height={SIZE}>
           {/* Rotated so the gap sits centred at the bottom. */}
-          <G rotation={90 + GAP_DEGREES / 2} origin={`${SIZE / 2}, ${SIZE / 2}`}>
+          <G rotation={-90 + GAP_DEGREES / 2} origin={`${SIZE / 2}, ${SIZE / 2}`}>
             <Circle
               cx={SIZE / 2} cy={SIZE / 2} r={radius}
               stroke="#FFFFFF" strokeWidth={STROKE} fill="none"
               strokeDasharray={`${arcLength} ${circum}`}
               strokeLinecap="round"
             />
-            <Circle
-              cx={SIZE / 2} cy={SIZE / 2} r={radius}
-              stroke={Colors.accent} strokeWidth={STROKE} fill="none"
-              strokeDasharray={`${progress} ${circum}`}
-              strokeLinecap="round"
-            />
+            {progress > 0.5 && (
+              <Circle
+                cx={SIZE / 2} cy={SIZE / 2} r={radius}
+                stroke={Colors.accent} strokeWidth={STROKE} fill="none"
+                strokeDasharray={`${progress} ${circum}`}
+                strokeLinecap="round"
+              />
+            )}
           </G>
         </Svg>
         <View style={s.gaugeCenter}>
@@ -76,7 +78,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#DFF5C8',
     borderRadius: 26,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 22,
   },
   left:     { flex: 1 },
@@ -87,7 +89,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   label:    { fontSize: 15, fontWeight: '600', color: Colors.primary },
-  percent:  { fontSize: 52, fontWeight: '800', color: Colors.primary, marginTop: 10, letterSpacing: -1.5 },
+  percent:  { fontSize: 46, lineHeight: 56, fontWeight: '800', color: Colors.primary, marginTop: 6, letterSpacing: -1.5 },
   gaugeWrap:   { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
   gaugeCenter: { position: 'absolute', alignItems: 'center' },
   eaten:    { fontSize: 21, fontWeight: '700', color: Colors.primary, lineHeight: 25 },

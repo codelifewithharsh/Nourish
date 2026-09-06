@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import Svg, { Path, Defs, LinearGradient, Stop, ClipPath, G } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, ClipPath, G } from 'react-native-svg';
 import { Accelerometer } from 'expo-sensors';
 import { Minus, Plus } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -16,42 +16,43 @@ interface Props {
 const W = 120;
 const H = 250;
 
-// A human silhouette in the 120x250 viewBox: head, shoulders, arms, legs.
+// Torso + arms + legs as one path, and the head as a separate circle, so
+// both clip against the same water level. The inner leg gap is a real gap —
+// an earlier version had it nearly closed and the figure read as a robe.
 const BODY_PATH = `
-  M60 8
-  C68 8 74 15 74 24
-  C74 33 68 40 60 40
-  C52 40 46 33 46 24
-  C46 15 52 8 60 8
-  Z
   M60 44
-  C72 44 84 48 92 55
-  C99 61 103 72 105 84
-  L110 128
-  C111 135 107 140 101 140
-  C96 140 92 136 91 130
-  L87 100
-  L85 152
-  C85 158 84 164 83 170
-  L78 232
-  C77 240 72 244 66 244
-  C60 244 56 239 56 232
-  L60 168
-  L60 168
-  L64 232
-  C64 239 60 244 54 244
-  C48 244 43 240 42 232
-  L37 170
-  C36 164 35 158 35 152
-  L33 100
-  L29 130
-  C28 136 24 140 19 140
-  C13 140 9 135 10 128
-  L15 84
-  C17 72 21 61 28 55
-  C36 48 48 44 60 44
+  C68 44 75 47 79 52
+  C82 56 84 62 85 69
+  L88 96
+  C89 103 92 118 94 128
+  C95 134 92 138 87 138
+  C83 138 80 135 79 130
+  L75 106
+  L74 140
+  C74 148 73 156 72 164
+  L68 224
+  C68 232 64 236 59 236
+  C54 236 51 232 51 225
+  L54 168
+  C54 164 55 160 56 156
+  C57 160 58 164 58 168
+  L61 225
+  C61 232 58 236 53 236
+  C48 236 44 232 44 224
+  L40 164
+  C39 156 38 148 38 140
+  L37 106
+  L33 130
+  C32 135 29 138 25 138
+  C20 138 17 134 18 128
+  C20 118 23 103 24 96
+  L27 69
+  C28 62 30 56 33 52
+  C37 47 44 44 52 44
   Z
 `;
+
+const HEAD = { cx: 56, cy: 24, r: 15 };
 
 /**
  * Water level rendered inside a body silhouette.
@@ -89,8 +90,8 @@ export function WaterBody({ glasses, target, onChange }: Props) {
   }, []);
 
   const ratio = target > 0 ? Math.min(glasses / target, 1) : 0;
-  // Never fill past the neck, so the head stays readable as a head.
-  const surfaceY = H - ratio * (H - 42);
+  // Full fill reaches just above the crown so 100% reads as complete.
+  const surfaceY = H - ratio * (H - 4);
 
   // Tilt the surface around the body's centre.
   const rad  = (tilt * Math.PI) / 180;
@@ -128,11 +129,13 @@ export function WaterBody({ glasses, target, onChange }: Props) {
           </LinearGradient>
           <ClipPath id="bodyClip">
             <Path d={BODY_PATH} />
+            <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} />
           </ClipPath>
         </Defs>
 
         {/* Empty body */}
         <Path d={BODY_PATH} fill="#E3E8EC" />
+        <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} fill="#E3E8EC" />
 
         {/* Water, clipped to the body. The surface polygon is drawn wider
             than the body so tilting never exposes an edge. */}
