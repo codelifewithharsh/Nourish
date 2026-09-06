@@ -18,6 +18,7 @@ import { PROFILE_UPDATED_EVENT, SCROLL_TO_SECTION_EVENT } from '@/lib/events';
 import { showToast } from '@/lib/toast';
 import { calculateNutrition } from '@/features/onboarding/utils/tdee';
 import { Colors } from '@/constants/colors';
+import { useScrollState } from '@/features/nutrition/ScrollContext';
 import { Txt, BreathingLogo } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
@@ -139,6 +140,7 @@ export default function YouScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<OpenRow>(null);
+  const { onScroll, resetAtTop } = useScrollState();
   const scrollRef = useRef<ScrollView>(null);
   const prefsSectionY = useRef(0);
   const [kitchenText, setKitchenText] = useState('');
@@ -258,6 +260,7 @@ export default function YouScreen() {
   useFocusEffect(
     useCallback(() => {
       analytics.screenViewed({ screen: 'profile' });
+      resetAtTop();
     }, [])
   );
 
@@ -426,6 +429,8 @@ export default function YouScreen() {
           contentContainerStyle={s.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
         >
           {/* ── Hero greeting ── */}

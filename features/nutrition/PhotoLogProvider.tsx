@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Alert } from 'react-native';
+import { ActionSheetIOS, Alert, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
@@ -10,7 +10,12 @@ import { PhotoResultSheet, type MealType } from './components/PhotoResultSheet';
 interface StartOptions {
   /** Pre-selects the meal type, so scanning from a dinner card logs as dinner. */
   mealType?: MealType;
-  source?:   'camera' | 'library';
+  /**
+   * Where the photo comes from. 'ask' offers the choice first — the OS camera
+   * has no gallery affordance of its own, so a user photographing a meal they
+   * already have a picture of would otherwise be stuck retaking it.
+   */
+  source?:   'camera' | 'library' | 'ask';
 }
 
 interface PhotoLogContext {
@@ -61,7 +66,34 @@ export function PhotoLogProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback((opts?: StartOptions) => {
     setMealType(opts?.mealType ?? currentMealType());
-    photo.capture(opts?.source ?? 'camera');
+    const source = opts?.source ?? 'camera';
+
+    if (source !== 'ask') {
+      photo.capture(source);
+      return;
+    }
+
+    // Native chooser rather than a custom sheet: it's one tap either way, and
+    // it's the interaction people already know from every other app.
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take a photo', 'Choose from gallery'],
+          cancelButtonIndex: 0,
+        },
+        (i) => {
+          if (i === 1) photo.capture('camera');
+          if (i === 2) photo.capture('library');
+        },
+      );
+      return;
+    }
+
+    Alert.alert('Log this meal', 'Where should we get the photo from?', [
+      { text: 'Take a photo',        onPress: () => photo.capture('camera') },
+      { text: 'Choose from gallery', onPress: () => photo.capture('library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   }, [photo.capture]);
 
   // One row per identified item, so the timeline shows "Roti" and "Dal"

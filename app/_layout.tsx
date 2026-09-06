@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
 import { ProProvider } from '@/features/pro';
 import { PhotoLogProvider } from '@/features/nutrition/PhotoLogProvider';
+import { ScrollProvider } from '@/features/nutrition/ScrollContext';
 import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
@@ -122,12 +123,14 @@ export default function RootLayout() {
           {/* Inside ProProvider: photo logging goes through useAI() for
               budget and rate-limit handling. */}
           <PhotoLogProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="recipe/[id]" />
-            </Stack>
-            <ToastContainer />
+            <ScrollProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="recipe/[id]" />
+              </Stack>
+              <ToastContainer />
+            </ScrollProvider>
           </PhotoLogProvider>
         </ProProvider>
       </SafeAreaProvider>

@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withTiming, interpolate, Easing,
+} from 'react-native-reanimated';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, CalendarDays, Camera, User } from 'lucide-react-native';
@@ -7,6 +10,7 @@ import { LucideIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { haptic } from '@/lib/haptics';
 import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
+import { useScrollState } from '@/features/nutrition/ScrollContext';
 
 type TabName = 'index' | 'meals' | 'profile';
 
@@ -28,9 +32,36 @@ const TAB_CONFIG: Record<TabName, TabConfig> = {
   profile: { label: 'Me',   Icon: User },
 };
 
+const AnimatedTouchable = Reanimated.createAnimatedComponent(TouchableOpacity);
+
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { start, busy } = usePhotoLogger();
+  const { atTop } = useScrollState();
+
+  // 1 = extended, 0 = collapsed.
+  const expand = useSharedValue(1);
+  useEffect(() => {
+    expand.value = withTiming(atTop ? 1 : 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [atTop]);
+
+  const animatedWidth = useAnimatedStyle(() => ({
+    width: interpolate(expand.value, [0, 1], [ACTION_SIZE, ACTION_EXTENDED]),
+  }));
+
+  // Fades over the first half of the collapse so the text is gone well before
+  // the button reaches circle width.
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity:    interpolate(expand.value, [0, 0.55, 1], [0, 0, 1]),
+    marginLeft: interpolate(expand.value, [0, 1], [0, 8]),
+    // Collapses to zero width alongside the button. Without this the label
+    // keeps its measured width while invisible and shoves the icon off the
+    // centre of the circle.
+    maxWidth:   interpolate(expand.value, [0, 1], [0, 120]),
+  }));
 
   const navTabs = state.routes as Route[];
 
@@ -73,20 +104,32 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
         </View>
 
         {/* Detached action button — opens the camera in place, over whatever
-            screen the user is on, rather than navigating to a capture tab. */}
-        <TouchableOpacity
-          onPress={() => { haptic.medium(); start(); }}
+            screen the user is on, rather than navigating to a capture tab.
+            Extended at the top of a page, collapsed to a circle once the user
+            scrolls, the way a compose button behaves. */}
+        <AnimatedTouchable
+          onPress={() => { haptic.medium(); start({ source: 'ask' }); }}
           activeOpacity={0.85}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="Log a meal with your camera"
+          accessibilityLabel="Scan your meal"
           accessibilityState={{ disabled: busy }}
-          style={[styles.actionBtn, busy && styles.actionBtnActive]}
+          style={[styles.actionBtn, busy && styles.actionBtnActive, animatedWidth]}
         >
           {busy
             ? <ActivityIndicator size="small" color="#FFFFFF" />
             : <Camera size={25} color="#FFFFFF" strokeWidth={2.3} />}
-        </TouchableOpacity>
+
+          {/* Width animates independently of opacity so the label fades out
+              before the button has finished shrinking, rather than being
+              clipped mid-word. */}
+          <Reanimated.Text
+            style={[styles.actionLabel, labelStyle]}
+            numberOfLines={1}
+          >
+            Scan your meal
+          </Reanimated.Text>
+        </AnimatedTouchable>
       </View>
     </View>
   );
@@ -94,6 +137,9 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
 const PILL_HEIGHT = 62;
 const ACTION_SIZE = 62;
+// Wide enough for "Scan your meal" beside the icon. The pill shrinks to make
+// room, so this can't grow much without crowding the three nav tabs.
+const ACTION_EXTENDED = 186;
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -109,10 +155,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    maxWidth: '100%',
+    paddingHorizontal: 12,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
     height: PILL_HEIGHT,
     paddingHorizontal: 10,
     borderRadius: PILL_HEIGHT / 2,
@@ -138,8 +187,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   actionBtn: {
-    width: ACTION_SIZE,
     height: ACTION_SIZE,
+    flexDirection: 'row',
+    overflow: 'hidden',
     borderRadius: ACTION_SIZE / 2,
     backgroundColor: Colors.accent,
     alignItems: 'center',
@@ -152,5 +202,10 @@ const styles = StyleSheet.create({
   },
   actionBtnActive: {
     backgroundColor: '#245C43',
+  },
+  actionLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

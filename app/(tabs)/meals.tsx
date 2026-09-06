@@ -15,6 +15,7 @@ import { partitionIngredients, toMealKey, type Ingredient } from '@/features/rec
 
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
+import { useScrollState } from '@/features/nutrition/ScrollContext';
 import {
   QuickAddCard,
   type NutritionResult,
@@ -652,6 +653,7 @@ export default function MealsScreen() {
   const [editSaving, setEditSaving] = useState(false);
   const invoke = useAI();
   const photoLogger = usePhotoLogger();
+  const { onScroll, resetAtTop } = useScrollState();
 
   // ── Quick-add ("ate something else") state ──
   const [query, setQuery] = useState('');
@@ -782,6 +784,7 @@ export default function MealsScreen() {
   useFocusEffect(
     useCallback(() => {
       analytics.screenViewed({ screen: 'meals' });
+      resetAtTop();
       const newToday = todayPlanIndex();
       if (newToday !== todayIndex) {
         setTodayIndex(newToday);
@@ -1040,6 +1043,8 @@ export default function MealsScreen() {
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
         {/* ── Header ── */}
@@ -1138,7 +1143,7 @@ export default function MealsScreen() {
                   status={getStatus(meal)}
                   busy={busyType === meal.type}
                   onLog={() => handleLog(meal)}
-                  onScan={() => photoLogger.start({ mealType: meal.type })}
+                  onScan={() => photoLogger.start({ mealType: meal.type, source: 'ask' })}
                   onSwap={() => { analytics.swapModalOpened({ meal_type: meal.type, source: 'meals' }); setSwapTarget(meal); }}
                   onEdit={() => { if (logged) setEditing(logged); }}
                   onDelog={() => { if (logged) handleDelog(logged); }}

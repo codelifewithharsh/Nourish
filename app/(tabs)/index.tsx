@@ -17,6 +17,7 @@ import { WaterBody } from '@/features/home/components/WaterBody';
 import { NextMealCard } from '@/features/home/components/NextMealCard';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
+import { useScrollState } from '@/features/nutrition/ScrollContext';
 import type { MealType } from '@/features/nutrition/components/PhotoResultSheet';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { NotifSheet } from '@/components/NotifSheet';
@@ -56,6 +57,7 @@ export default function TodayScreen() {
   const [swapOpen, setSwapOpen]       = useState(false);
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const photoLogger = usePhotoLogger();
+  const { onScroll, resetAtTop } = useScrollState();
   const {
     mealTimes, enabled: notifsEnabled, setMealTime, setEnabled: setNotifsEnabled,
   } = useMealReminders();
@@ -66,8 +68,12 @@ export default function TodayScreen() {
 
   useFocusEffect(useCallback(() => {
     analytics.screenViewed({ screen: 'home' });
+    // Each screen keeps its own scroll position, so the shared "at top" flag
+    // must be re-stated on focus or the button stays collapsed from whichever
+    // tab was scrolled last.
+    resetAtTop();
     refresh();
-  }, [refresh]));
+  }, [refresh, resetAtTop]));
 
   // A scan started from the tab bar lands rows without any navigation, so
   // nothing would otherwise tell the dashboard its numbers are stale.
@@ -167,6 +173,8 @@ export default function TodayScreen() {
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingBottom: tabBarClearance }]}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
         {/* Header */}
@@ -246,7 +254,7 @@ export default function TodayScreen() {
               analytics.swapModalOpened({ meal_type: nextMeal.type, source: 'home' });
               setSwapOpen(true);
             }}
-            onScan={() => photoLogger.start({ mealType: nextMeal.type as MealType })}
+            onScan={() => photoLogger.start({ mealType: nextMeal.type as MealType, source: 'ask' })}
             onView={() => router.push({
               pathname: '/recipe/[id]',
               params: {
