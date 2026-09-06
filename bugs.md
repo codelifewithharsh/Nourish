@@ -31,23 +31,16 @@ The bottom sheets for these flows (`components/SwapMealModal/index.tsx`, `app/(t
 
 ---
 
-## Bug 3: Old package ID `com.nourish.app` still present in codebase
+## Bug 3: Old package ID `com.nourish.app` still present in codebase — FIXED
 
-**What is the bug:**
-The app's package ID was changed to `in.nourish.app` for the Play Store, but the old `com.nourish.app` still exists in several places. This causes the share sheet (e.g., on the recipe view page) and other links to reference the wrong package.
+Everything now uses `in.nourish.app`:
 
-**What's exactly wrong:**
-- `app.json` line 13: `bundleIdentifier` is still `com.nourish.app` (iOS — may be intentional, but verify).
-- `android/app/build.gradle` lines 90 and 92: `namespace` and `applicationId` are still `com.nourish.app`.
-- `android/app/src/main/java/com/nourish/app/MainActivity.kt` line 1: package declaration is `com.nourish.app`.
-- `android/app/src/main/java/com/nourish/app/MainApplication.kt` line 1: package declaration is `com.nourish.app`.
+- `app.json` — `bundleIdentifier` and `package` both `in.nourish.app`
+- `android/app/build.gradle` — `namespace` and `applicationId` both `in.nourish.app`
+- Kotlin sources live at `android/app/src/main/java/in/nourish/app/`
 
-**What to fix:**
-- Update `android/app/build.gradle`: change `namespace` and `applicationId` from `com.nourish.app` → `in.nourish.app`.
-- Update package declarations in `MainActivity.kt` and `MainApplication.kt`.
-- Move the Java/Kotlin source files to the correct directory path: `android/app/src/main/java/in/nourish/app/`.
-- Verify `app.json` Android `package` field is already `in.nourish.app` (it is — line 27, correct).
-- Re-run `expo prebuild` after changes to regenerate native files cleanly.
+Note the OAuth callback was never affected: login builds its redirect from
+the `nourish` URL scheme (`app.json`), not from the package id.
 - Note: The share URL in `app/recipe/[id].tsx` already correctly uses `in.nourish.app` — no change needed there.
 
 ---

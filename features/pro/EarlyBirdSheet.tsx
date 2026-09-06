@@ -25,11 +25,15 @@ interface Props {
   userPrice?:   string;
 }
 
+// "Unlimited" is dropped throughout: every action here is rate limited per
+// day, and photo scans especially so. Higher limits is the honest claim, and
+// it's one that survives the limits being tuned.
 const PERKS = [
-  { title: 'Unlimited 7-day meal plans',  body: 'Regenerate whenever your taste or goals change.' },
-  { title: 'Unlimited recipe deep-dives', body: 'Full ingredients, steps, and chef tips for every meal.' },
-  { title: 'Unlimited meal swaps',        body: 'Don\'t love a meal? Swap for something that fits.' },
-  { title: 'AI food logging',             body: 'Type what you ate — macros calculated instantly.' },
+  { title: 'Photo meal logging',          body: 'Snap your plate — AI reads the dishes and portions.' },
+  { title: 'Higher daily limits',         body: 'More scans, swaps and lookups every day than the free plan.' },
+  { title: 'Fresh 7-day meal plans',      body: 'Regenerate whenever your taste or goals change.' },
+  { title: 'Full recipe deep-dives',      body: 'Ingredients, steps, and chef tips for every meal.' },
+  { title: 'Meal swaps on demand',        body: 'Don\'t love a meal? Swap for something that fits.' },
   { title: 'Smart kitchen suggestions',   body: 'Plans built around what you already have at home.' },
   { title: 'Priority access to features', body: 'You\'ll get every new tool before anyone else.' },
 ];

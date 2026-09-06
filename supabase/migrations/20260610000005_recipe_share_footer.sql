@@ -6,7 +6,7 @@
 insert into public.app_config (key, value, description) values
   (
     'recipe_share_footer',
-    'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=com.nourish.app',
+    'Made with Nourish 🌿\nEat well. Live better. → https://play.google.com/store/apps/details?id=in.nourish.app',
     'Footer appended to shared recipes. Supports \n for line breaks.'
   )
 on conflict (key) do nothing;

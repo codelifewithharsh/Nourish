@@ -64,10 +64,15 @@ const ACTION_META: Record<AiAction, ActionMeta> = {
     rateLimitMessage: "You've swapped quite a few meals today! Fresh ideas come back tomorrow.",
   },
   photo: {
+    // Vision calls are the most expensive thing here, so these are set close
+    // to real meal counts rather than generously. Note the counter increments
+    // before the model call, so a retake or a photo with no food in it still
+    // costs a scan — raise via app_config (limit_photo / limit_photo_free) if
+    // that proves too tight in practice.
     proConfigKey:     "limit_photo",
-    proDefaultLimit:  50,
+    proDefaultLimit:  6,
     freeConfigKey:    "limit_photo_free",
-    freeDefaultLimit: 10,
+    freeDefaultLimit: 2,
     rateLimitMessage: "You've logged a lot today! Photo logging is back tomorrow morning.",
   },
   nutrition: {

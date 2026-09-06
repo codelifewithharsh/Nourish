@@ -100,6 +100,6 @@ end $$;
 -- Photo logging costs roughly a paisa per call, so the cap exists to stop
 -- scripted abuse, not to ration genuine use. See ACTION_META in ai-guard.ts.
 insert into public.app_config (key, value, description) values
-  ('limit_photo',      '50', 'Daily photo meal logs per Pro user'),
-  ('limit_photo_free', '10', 'Daily photo meal logs for non-Pro users (is_pro=false)')
+  ('limit_photo',      '6', 'Daily photo meal logs per Pro user'),
+  ('limit_photo_free', '2', 'Daily photo meal logs for non-Pro users (is_pro=false)')
 on conflict (key) do nothing;
