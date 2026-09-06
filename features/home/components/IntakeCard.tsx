@@ -36,7 +36,7 @@ export function IntakeCard({ eaten, target }: Props) {
           <View style={s.iconWrap}>
             <Zap size={16} color={Colors.accent} strokeWidth={2.4} fill={Colors.accent} />
           </View>
-          <Txt style={s.label}>Daily intake</Txt>
+          <Txt style={s.label}>Daily calorie intake</Txt>
         </View>
         <Txt style={s.percent}>{percent}%</Txt>
       </View>
@@ -76,7 +76,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#DFF5C8',
+    backgroundColor: Colors.intakeCard,
     borderRadius: 26,
     paddingVertical: 16,
     paddingHorizontal: 22,
@@ -88,11 +88,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.75)',
     alignItems: 'center', justifyContent: 'center',
   },
-  label:    { fontSize: 15, fontWeight: '600', color: Colors.primary },
+  label:    { fontSize: 14, fontWeight: '600', color: Colors.primary },
   percent:  { fontSize: 46, lineHeight: 56, fontWeight: '800', color: Colors.primary, marginTop: 6, letterSpacing: -1.5 },
   gaugeWrap:   { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
   gaugeCenter: { position: 'absolute', alignItems: 'center' },
   eaten:    { fontSize: 21, fontWeight: '700', color: Colors.primary, lineHeight: 25 },
-  divider:  { width: 46, height: 1, backgroundColor: '#C9CFC2', marginVertical: 3 },
+  divider:  { width: 46, height: 1, backgroundColor: 'rgba(26,26,26,0.18)', marginVertical: 3 },
   target:   { fontSize: 14, color: Colors.secondary, lineHeight: 18 },
 });

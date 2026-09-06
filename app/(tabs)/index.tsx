@@ -5,7 +5,7 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
-import { Bell, Camera, Flame } from 'lucide-react-native';
+import { Bell, Flame } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius } from '@/constants/spacing';
 import { Txt } from '@/components/ui';
@@ -84,7 +84,7 @@ export default function TodayScreen() {
 
   releaseSplash();
 
-  const { eaten, targets, insights, logged, nextMeal } = data;
+  const { eaten, targets, insights, logged } = data;
   const insight = insights[0];
 
   return (
@@ -140,51 +140,24 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* Macros */}
-        <NutritionsCard
-          rows={[
-            { label: 'Carbs',   eaten: eaten.carbs,   target: targets.carbs,   unit: 'g',  color: NUTRIENT_COLORS.carbs },
-            { label: 'Fat',     eaten: eaten.fat,     target: targets.fat,     unit: 'g',  color: NUTRIENT_COLORS.fat },
-            { label: 'Protein', eaten: eaten.protein, target: targets.protein, unit: 'g',  color: NUTRIENT_COLORS.protein,
-              highlight: insight?.key === 'protein' && insight.severity === 'warn' },
-            { label: 'Fibre',   eaten: eaten.fibre,   target: targets.fibre,   unit: 'g',  color: NUTRIENT_COLORS.fibre,
-              highlight: insight?.key === 'fibre' && insight.severity === 'warn' },
-            { label: 'Sodium',  eaten: eaten.sodium,  target: targets.sodium,  unit: 'mg', color: NUTRIENT_COLORS.sodium,
-              isLimit: true, highlight: insight?.key === 'sodium' && insight.severity === 'warn' },
-          ]}
-        />
-
-        {/* Primary action */}
-        <TouchableOpacity
-          style={s.logCta}
-          activeOpacity={0.88}
-          onPress={() => { haptic.medium(); router.push('/(tabs)/log'); }}
-        >
-          <Camera size={20} color="#FFFFFF" strokeWidth={2.2} />
-          <Txt style={s.logCtaTxt}>Log a meal</Txt>
-        </TouchableOpacity>
-
-        {/* Up next from the plan */}
-        {nextMeal && (
-          <TouchableOpacity
-            style={s.nextCard}
-            activeOpacity={0.9}
-            onPress={() => router.push({
-              pathname: '/recipe/[id]',
-              params: {
-                id: encodeURIComponent(nextMeal.name),
-                type: nextMeal.type,
-                calories: String(nextMeal.calories),
-                protein: String(nextMeal.protein),
-                carbs: '0', fat: '0',
-              },
-            })}
-          >
-            <Txt style={s.sectionLabel}>Up next · {nextMeal.type}</Txt>
-            <Txt style={s.nextName}>{MEAL_EMOJI[nextMeal.type] ?? '🍽️'} {nextMeal.name}</Txt>
-            <Txt style={s.nextMeta}>{nextMeal.calories} kcal · {nextMeal.protein}g protein</Txt>
-          </TouchableOpacity>
-        )}
+        {/* Macros and water share a row; water takes the right ~30% */}
+        <View style={s.macroRow}>
+          <NutritionsCard
+            rows={[
+              { label: 'Carbs',   eaten: eaten.carbs,   target: targets.carbs,   unit: 'g',  color: NUTRIENT_COLORS.carbs },
+              { label: 'Fat',     eaten: eaten.fat,     target: targets.fat,     unit: 'g',  color: NUTRIENT_COLORS.fat },
+              { label: 'Protein', eaten: eaten.protein, target: targets.protein, unit: 'g',  color: NUTRIENT_COLORS.protein,
+                highlight: insight?.key === 'protein' && insight.severity === 'warn' },
+              { label: 'Fibre',   eaten: eaten.fibre,   target: targets.fibre,   unit: 'g',  color: NUTRIENT_COLORS.fibre,
+                highlight: insight?.key === 'fibre' && insight.severity === 'warn' },
+              { label: 'Sodium',  eaten: eaten.sodium,  target: targets.sodium,  unit: 'mg', color: NUTRIENT_COLORS.sodium,
+                isLimit: true, highlight: insight?.key === 'sodium' && insight.severity === 'warn' },
+            ]}
+          />
+          <View style={s.waterCol}>
+            <WaterBody glasses={data.glasses} target={10} onChange={logWater} />
+          </View>
+        </View>
 
         {/* Today's log, with the user's own photos */}
         {logged.length > 0 && (
@@ -205,9 +178,6 @@ export default function TodayScreen() {
             ))}
           </View>
         )}
-
-        {/* Water */}
-        <WaterBody glasses={data.glasses} target={10} onChange={logWater} />
 
       </ScrollView>
 
@@ -236,6 +206,8 @@ const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: Colors.background },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:  { padding: 20, gap: 14 },
+  macroRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  waterCol: { width: '31%' },
 
   topBar:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -258,12 +230,7 @@ const s = StyleSheet.create({
   card: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: 18 },
   sectionLabel: { fontSize: 12, fontWeight: '600', color: Colors.secondary, marginBottom: 10 },
 
-  logCta:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 17, borderRadius: BorderRadius.lg, backgroundColor: Colors.accent },
-  logCtaTxt: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
-  nextCard: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: 18 },
-  nextName: { fontSize: 17, fontWeight: '700', color: Colors.primary },
-  nextMeta: { fontSize: 13, color: Colors.secondary, marginTop: 4 },
 
   logRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   logThumb: { width: 46, height: 46, borderRadius: 10, backgroundColor: Colors.background },
