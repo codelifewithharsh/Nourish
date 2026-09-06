@@ -18,7 +18,10 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { Txt } from '@/components/ui';
+// Imported from the module rather than the ui barrel: the barrel also exports
+// FloatingTabBar, which depends on this context, and going through it would
+// form a require cycle that leaves the context undefined at module init.
+import { Txt } from '@/components/ui/Typography';
 import { supabase } from '@/lib/supabase';
 import { AIError, invokeAI } from '@/lib/aiClient';
 

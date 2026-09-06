@@ -9,7 +9,9 @@ import { armSplashGate, releaseSplash } from '@/lib/splashGate';
 import { supabase } from '@/lib/supabase';
 import { analytics, resetUser } from '@/lib/analytics';
 import { ProProvider } from '@/features/pro';
-import { WATER_ACTION_ID, registerPushToken } from '@/lib/notifications';
+import { PhotoLogProvider } from '@/features/nutrition/PhotoLogProvider';
+import { ScrollProvider } from '@/features/nutrition/ScrollContext';
+import { WATER_ACTION_ID, registerPushToken, applyWaterRemindersOffDefault } from '@/lib/notifications';
 import { WATER_LOGGED_EVENT } from '@/lib/events';
 import { ToastContainer } from '@/components/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -66,6 +68,9 @@ export default function RootLayout() {
     // or this safety cutoff fires.
     armSplashGate(2000);
 
+    // Water reminders now default to off. Runs once per install.
+    applyWaterRemindersOffDefault();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         analytics.logout();
@@ -118,12 +123,18 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <ProProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="recipe/[id]" />
-          </Stack>
-          <ToastContainer />
+          {/* Inside ProProvider: photo logging goes through useAI() for
+              budget and rate-limit handling. */}
+          <PhotoLogProvider>
+            <ScrollProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="recipe/[id]" />
+              </Stack>
+              <ToastContainer />
+            </ScrollProvider>
+          </PhotoLogProvider>
         </ProProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

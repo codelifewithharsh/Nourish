@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 
 export const WATER_ACTION_ID = 'LOG_WATER_GLASS';
@@ -132,6 +133,26 @@ export async function cancelMealReminders() {
 // Water reminders — scheduled from wakeHour to sleepHour every intervalHours.
 // Identified by a tag so we can cancel only water ones without touching meal ones.
 const WATER_TAG = 'water-reminder';
+
+/**
+ * Turn water reminders off once, for users who enabled them before they
+ * defaulted to off.
+ *
+ * Guarded by its own flag rather than the interval value: a user who
+ * deliberately re-enables reminders after this has run must keep them, so
+ * this can never fire twice.
+ */
+export async function applyWaterRemindersOffDefault() {
+  const DONE_KEY = '@nourish/water_default_off_applied';
+  try {
+    if (await AsyncStorage.getItem(DONE_KEY)) return;
+    await cancelWaterReminders();
+    await AsyncStorage.setItem('@nourish/water_interval', '0');
+    await AsyncStorage.setItem(DONE_KEY, '1');
+  } catch {
+    // Storage unavailable — try again next launch rather than blocking start-up.
+  }
+}
 
 export async function scheduleWaterReminders(intervalHours: number, wakeHour = 8, sleepHour = 22) {
   const granted = await requestNotificationPermission();

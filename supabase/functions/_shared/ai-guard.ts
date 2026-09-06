@@ -27,7 +27,8 @@ export type AiAction =
   | "meal_plan"
   | "recipe"
   | "swap"
-  | "nutrition";
+  | "nutrition"
+  | "photo";
 
 interface ActionMeta {
   // app_config row read for Pro members (existing keys preserved for back-compat)
@@ -62,6 +63,18 @@ const ACTION_META: Record<AiAction, ActionMeta> = {
     freeDefaultLimit: 1,
     rateLimitMessage: "You've swapped quite a few meals today! Fresh ideas come back tomorrow.",
   },
+  photo: {
+    // Vision calls are the most expensive thing here, so these are set close
+    // to real meal counts rather than generously. Note the counter increments
+    // before the model call, so a retake or a photo with no food in it still
+    // costs a scan — raise via app_config (limit_photo / limit_photo_free) if
+    // that proves too tight in practice.
+    proConfigKey:     "limit_photo",
+    proDefaultLimit:  6,
+    freeConfigKey:    "limit_photo_free",
+    freeDefaultLimit: 2,
+    rateLimitMessage: "You've logged a lot today! Photo logging is back tomorrow morning.",
+  },
   nutrition: {
     proConfigKey:     "limit_nutrition",
     proDefaultLimit:  20,
@@ -92,6 +105,8 @@ interface RecordParams {
   status:       "success" | "openai_error";
   tokens_in?:   number;
   tokens_out?:  number;
+  /** Model used, for per-model cost accounting. Defaults to gpt-4o-mini. */
+  model?:       string;
   meta?:        Record<string, unknown>;
 }
 
@@ -116,13 +131,38 @@ export interface GuardErr {
   response:  Response;
 }
 
-/** Cost estimate for gpt-4o-mini given token counts (USD micro-cents). */
-export function costMicrosGpt4oMini(tokens_in?: number, tokens_out?: number): bigint | null {
+/**
+ * Per-model token prices in USD micro-cents (1e-8 USD) per token.
+ * $1 / 1M tokens == 100 micro-cents per token.
+ */
+const MODEL_RATES: Record<string, { in: bigint; out: bigint }> = {
+  // $0.15 / 1M input, $0.60 / 1M output
+  "gpt-4o-mini": { in: 15n, out: 60n },
+};
+
+const DEFAULT_MODEL = "gpt-4o-mini";
+
+/**
+ * Cost estimate for a model given token counts (USD micro-cents).
+ * Unknown models fall back to gpt-4o-mini rates so logging never crashes;
+ * add a MODEL_RATES entry whenever a function starts using a new model, or
+ * its cost_micros column will be wrong.
+ */
+export function costMicros(
+  tokens_in?: number,
+  tokens_out?: number,
+  model: string = DEFAULT_MODEL,
+): bigint | null {
   if (tokens_in == null && tokens_out == null) return null;
-  // $0.15 / 1M input, $0.60 / 1M output → 15 / 60 micro-cents per token
+  const rate = MODEL_RATES[model] ?? MODEL_RATES[DEFAULT_MODEL];
   const ti = BigInt(tokens_in  ?? 0);
   const to = BigInt(tokens_out ?? 0);
-  return ti * 15n + to * 60n;
+  return ti * rate.in + to * rate.out;
+}
+
+/** @deprecated Use costMicros(tokens_in, tokens_out, model). Kept for callers. */
+export function costMicrosGpt4oMini(tokens_in?: number, tokens_out?: number): bigint | null {
+  return costMicros(tokens_in, tokens_out, "gpt-4o-mini");
 }
 
 export async function guard(req: Request, action: AiAction): Promise<GuardOk | GuardErr> {
@@ -233,7 +273,7 @@ export async function guard(req: Request, action: AiAction): Promise<GuardOk | G
 
     const recordOutcome = async (p: RecordParams) => {
       const { writer, logId } = await writerPromise;
-      const cost_micros = costMicrosGpt4oMini(p.tokens_in, p.tokens_out);
+      const cost_micros = costMicros(p.tokens_in, p.tokens_out, p.model);
       await writer
         .from("ai_usage_log")
         .update({

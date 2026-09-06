@@ -1,4 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^$\")",
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(xargs ls -la)"
+    ]
+  },
   "enabledPlugins": {
     "expo@claude-plugins-official": true
   }

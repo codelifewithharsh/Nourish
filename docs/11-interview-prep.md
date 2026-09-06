@@ -127,7 +127,7 @@ This is driven by **database state**, not client state. Reinstalling the app pre
 
 1. User taps "Continue with Google" on the login screen
 2. `expo-auth-session` opens an in-app browser to Google's OAuth URL
-3. User signs in → Google redirects to `com.nourish.app://auth/callback`
+3. User signs in → Google redirects to `nourish://auth/callback`
 4. The native app deep-link handler receives the URL, extracts the code
 5. Supabase exchanges the code for a JWT, stored in iOS Keychain / Android Keystore via `expo-secure-store`
 6. `onAuthStateChange` fires `INITIAL_SESSION` → root layout decides the route
@@ -608,7 +608,7 @@ Fix: centralised a `localDateStr()` helper in `lib/date.ts` that uses the device
 
 ### "How do you handle authentication?"
 
-Supabase Auth + Google OAuth via `expo-auth-session`. The user taps "Continue with Google" → in-app browser opens Google OAuth → redirects to `com.nourish.app://auth/callback` → Supabase exchanges the auth code for a JWT → JWT stored in iOS Keychain / Android Keystore via `expo-secure-store`. The Supabase JS client is configured with a custom storage adapter pointing at SecureStore so sessions survive app restarts.
+Supabase Auth + Google OAuth via `expo-auth-session`. The user taps "Continue with Google" → in-app browser opens Google OAuth → redirects to `nourish://auth/callback` → Supabase exchanges the auth code for a JWT → JWT stored in iOS Keychain / Android Keystore via `expo-secure-store`. The Supabase JS client is configured with a custom storage adapter pointing at SecureStore so sessions survive app restarts.
 
 ### "How do you secure the database?"
 

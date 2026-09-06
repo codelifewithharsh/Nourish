@@ -4,6 +4,8 @@
 
 Where this and docs 01–11 disagree, **this is correct** (drift listed in §14).
 
+> ⚠️ **Superseded in part by v2.** This file describes v1.0.0. Photo logging, the 3-tab restructure (`log.tsx` is gone) and the 20260906 schema changes are **not** reflected below — see [`15-version-2.md`](./15-version-2.md), which overrides this file where they disagree (its §7 lists exactly where).
+
 ---
 
 ## 1. What it is

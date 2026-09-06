@@ -8,13 +8,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   User as UserIcon, Bell, BookOpen, MessageSquareHeart,
-  Settings, ChevronRight, LogOut, Flame, Calendar, Sparkles,
+  Settings, ChevronRight, LogOut, Flame, ShoppingCart, Calendar,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import { SCROLL_TO_SECTION_EVENT } from '@/lib/events';
+import { SCROLL_TO_SECTION_EVENT, OPEN_GROCERY_LIST_EVENT } from '@/lib/events';
 import { OGAvatar } from '@/features/pro';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -182,22 +182,35 @@ export function HomeDrawer({
               <ChevronRight size={17} color="rgba(255,255,255,0.85)" strokeWidth={2.2} />
             </TouchableOpacity>
 
-            {/* ── Quick links ── */}
+            {/* ── Your plan ── */}
+            {/* Mirrors the profile pair above: the destination itself, then
+                the thing inside it worth reaching directly. */}
             <View style={d.section}>
-              <Txt style={d.sectionLabel}>Quick links</Txt>
-
+              <Txt style={d.sectionLabel}>Your plan</Txt>
               <DrawerItem
                 icon={<Calendar size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="My meal plan"
-                hint="Today's plan & 7-day view"
+                hint="Today's meals & 7-day view"
                 onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/meals'), 250); }}
               />
               <DrawerItem
-                icon={<Sparkles size={18} color={Colors.accent} strokeWidth={2.2} />}
-                label="Log what I ate"
-                hint="AI nutrition lookup"
-                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/log'), 250); }}
+                icon={<ShoppingCart size={18} color={Colors.accent} strokeWidth={2.2} />}
+                label="Grocery list"
+                hint="Everything this week's plan needs"
+                onPress={() => {
+                  haptic.light();
+                  close();
+                  setTimeout(() => {
+                    router.push('/(tabs)/meals');
+                    setTimeout(() => DeviceEventEmitter.emit(OPEN_GROCERY_LIST_EVENT), 400);
+                  }, 250);
+                }}
               />
+            </View>
+
+            {/* ── Quick links ── */}
+            <View style={d.section}>
+              <Txt style={d.sectionLabel}>Quick links</Txt>
               <DrawerItem
                 icon={<Bell size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Notifications"
@@ -242,7 +255,7 @@ export function HomeDrawer({
               <Txt style={d.signOutTxt}>Sign out</Txt>
             </TouchableOpacity>
 
-            <Txt style={d.version}>Nourish v1.0</Txt>
+            <Txt style={d.version}>Nourish v1.1</Txt>
 
           </ScrollView>
         </Animated.View>

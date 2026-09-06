@@ -58,6 +58,7 @@ export const analytics = {
   logEntryDeleted:          ()                                                           => posthog.capture('log_entry_deleted'),
   logEntryEdited:           ()                                                           => posthog.capture('log_entry_edited'),
   nutritionLookedUp:        (props: { query: string })                                  => posthog.capture('nutrition_lookup', props),
+  photoLogged:              (props: { items: number; calories: number; confidence: number }) => posthog.capture('photo_logged', props),
 
   // ── Water ──────────────────────────────────────────────────────────────────
   waterLogged:              (props: { glasses: number })                                 => posthog.capture('water_logged', props),

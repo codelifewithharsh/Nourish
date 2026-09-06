@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Modal, Share, ActivityIndicator, Animated, Easing,
+  RefreshControl, Modal, Share, ActivityIndicator, Animated, Easing, Alert,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
-import { Check, ChevronRight, Sparkles, ShoppingCart, X, Share2, CheckCircle2 } from 'lucide-react-native';
+import { Check, ChevronRight, Sparkles, ShoppingCart, X, Share2, CheckCircle2, Camera, Pencil, Undo2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +15,17 @@ import { useAI } from '@/features/pro';
 import { partitionIngredients, toMealKey, type Ingredient } from '@/features/recipe/useRecipe';
 
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
+import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
+import { useScrollState } from '@/features/nutrition/ScrollContext';
+import {
+  QuickAddCard,
+  type NutritionResult,
+  type RecentMeal,
+} from '@/features/nutrition/components/QuickAddCard';
+import { EditLogModal, type EditableLog } from '@/features/nutrition/components/EditLogModal';
+import { AIError } from '@/lib/aiClient';
+import { localDateStr } from '@/lib/date';
+import { OPEN_GROCERY_LIST_EVENT } from '@/lib/events';
 import { analytics } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +39,8 @@ interface Meal {
   protein: number;
   carbs: number;
   fat: number;
+  /** Optional: plans generated before fibre was tracked simply omit it. */
+  fibre?: number;
 }
 
 interface Day {
@@ -34,6 +48,28 @@ interface Day {
   meals: Meal[];
   total_calories: number;
   total_protein: number;
+}
+
+/** A raw row from daily_logs. */
+interface LogRow {
+  id:        string;
+  meal_type: string;
+  meal_name: string;
+  calories:  number;
+  protein:   number;
+  carbs:     number;
+  fat:       number;
+  fibre:     number;
+}
+
+/**
+ * A meal the user actually ate, as opposed to one the plan proposed.
+ * Carries the row ids it was built from so it can be edited or undone.
+ */
+interface LoggedMeal extends Meal {
+  /** Always known for a logged meal — the column is NOT NULL with default 0. */
+  fibre:  number;
+  logIds: string[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,13 +153,17 @@ const sk = StyleSheet.create({
 // ─── Meal Card ────────────────────────────────────────────────────────────────
 
 function MealCard({
-  meal, status, onLog, onSwap, onView,
+  meal, status, onLog, onSwap, onScan, onView, onEdit, onDelog, busy,
 }: {
   meal: Meal;
   status: 'logged' | 'next' | 'upcoming' | 'past' | 'future';
   onLog: () => void;
   onSwap: () => void;
+  onScan: () => void;
   onView: () => void;
+  onEdit: () => void;
+  onDelog: () => void;
+  busy: boolean;
 }) {
   const color = MEAL_COLOR[meal.type];
   const emoji = MEAL_EMOJI[meal.type];
@@ -131,11 +171,13 @@ function MealCard({
   const isNext   = status === 'next';
   const isFuture = status === 'future';
 
-  // Collapsed/logged variant
+  // Collapsed/logged variant. Correcting a logged meal used to mean leaving
+  // for another tab, so the two actions that matter — fix it, undo it — sit
+  // on the card itself.
   if (isLogged) {
     return (
-      <TouchableOpacity style={[mc.card, mc.cardLogged]} onPress={onView} activeOpacity={0.85}>
-        <View style={mc.loggedRow}>
+      <View style={[mc.card, mc.cardLogged]}>
+        <TouchableOpacity style={mc.loggedRow} onPress={onView} activeOpacity={0.85}>
           <View style={[mc.checkCircle, { backgroundColor: color }]}>
             <Check size={14} color="#FFFFFF" strokeWidth={3} />
           </View>
@@ -148,8 +190,18 @@ function MealCard({
             </View>
             <Txt style={mc.loggedName} numberOfLines={1}>{meal.name}</Txt>
           </View>
+        </TouchableOpacity>
+        <View style={mc.loggedActions}>
+          <TouchableOpacity onPress={onEdit} hitSlop={8} style={mc.loggedBtn} disabled={busy}>
+            <Pencil size={14} color={Colors.secondary} strokeWidth={2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelog} hitSlop={8} style={mc.loggedBtn} disabled={busy}>
+            {busy
+              ? <ActivityIndicator size="small" color={Colors.secondary} />
+              : <Undo2 size={14} color={Colors.secondary} strokeWidth={2} />}
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   }
 
@@ -187,18 +239,36 @@ function MealCard({
         <MacroPill value={`${meal.protein}g`} unit="protein" color="#5B8DB8" />
         <MacroPill value={`${meal.carbs}g`}   unit="carbs"   color="#E6A817" />
         <MacroPill value={`${meal.fat}g`}     unit="fat"     color="#9B59B6" />
+        {meal.fibre != null && (
+          <MacroPill value={`${meal.fibre}g`} unit="fibre" color="#4E9A5F" />
+        )}
       </View>
 
-      {/* Actions */}
+      {/* Actions. "Log it" is the plan-was-right path; Scan is for when they
+          ate something else and want it read from a photo; Suggest asks the
+          AI for a different dish. */}
       {!isFuture && (
         <View style={mc.btns}>
           <TouchableOpacity
             style={[mc.btnLog, { backgroundColor: color }]}
             activeOpacity={0.88}
             onPress={onLog}
+            disabled={busy}
           >
-            <Check size={16} color="#FFFFFF" strokeWidth={3} />
-            <Txt style={mc.btnLogTxt}>Log it</Txt>
+            {busy
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <>
+                  <Check size={16} color="#FFFFFF" strokeWidth={3} />
+                  <Txt style={mc.btnLogTxt}>Log it</Txt>
+                </>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[mc.btnSwap, { borderColor: color }]}
+            activeOpacity={0.85}
+            onPress={onScan}
+          >
+            <Camera size={14} color={color} strokeWidth={2.5} />
+            <Txt style={[mc.btnSwapTxt, { color }]}>Scan</Txt>
           </TouchableOpacity>
           <TouchableOpacity
             style={[mc.btnSwap, { borderColor: color }]}
@@ -206,7 +276,7 @@ function MealCard({
             onPress={onSwap}
           >
             <Sparkles size={14} color={color} strokeWidth={2.5} />
-            <Txt style={[mc.btnSwapTxt, { color }]}>Swap</Txt>
+            <Txt style={[mc.btnSwapTxt, { color }]}>Suggest</Txt>
           </TouchableOpacity>
         </View>
       )}
@@ -235,7 +305,7 @@ const mc = StyleSheet.create({
   card:        { backgroundColor: Colors.surface, borderRadius: 18, padding: 16, gap: 10, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardNext:    { shadowColor: Colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 4 },
   cardFuture:  { opacity: 0.75 },
-  cardLogged:  { paddingVertical: 12, paddingHorizontal: 14 },
+  cardLogged:  { paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' },
   stripe:      { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
 
   topRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: 6 },
@@ -260,7 +330,9 @@ const mc = StyleSheet.create({
   btnSwapTxt:  { fontSize: 13, fontWeight: '700', lineHeight: 18 },
 
   // Logged compact variant
-  loggedRow:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  loggedRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  loggedActions:{ flexDirection: 'row', gap: 2, marginLeft: 4 },
+  loggedBtn:    { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   checkCircle:  { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   loggedInfo:   { flex: 1, gap: 2 },
   loggedTopRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -570,7 +642,7 @@ export default function MealsScreen() {
   const [selectedDay, setSelectedDay] = useState(todayIndex);
   const [plan, setPlan] = useState<Day[] | null>(null);
   const [loggedTypes, setLoggedTypes] = useState<Set<string>>(new Set());
-  const [loggedMealsByType, setLoggedMealsByType] = useState<Record<string, Meal>>({});
+  const [loggedMealsByType, setLoggedMealsByType] = useState<Record<string, LoggedMeal>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -578,22 +650,61 @@ export default function MealsScreen() {
   const [swapTarget, setSwapTarget] = useState<Meal | null>(null);
   const [addingSnack, setAddingSnack] = useState(false);
   const [groceryOpen, setGroceryOpen] = useState(false);
+  const [busyType, setBusyType] = useState<MealType | null>(null);
+  const [editing, setEditing] = useState<LoggedMeal | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const invoke = useAI();
+  const photoLogger = usePhotoLogger();
+  const { onScroll, resetAtTop } = useScrollState();
+
+  // ── Quick-add ("ate something else") state ──
+  const [query, setQuery] = useState('');
+  const [looking, setLooking] = useState(false);
+  const [lookupResult, setLookupResult] = useState<NutritionResult | null>(null);
+  const [quickType, setQuickType] = useState<MealType>(nextMealTypeByTime());
+  const [confirming, setConfirming] = useState(false);
+  const [recentMeals, setRecentMeals] = useState<RecentMeal[]>([]);
 
   // Fetch the plan + today's logs together
   const fetchData = useCallback(async (uid: string) => {
     const today = todayStr();
-    const [planRes, logsRes] = await Promise.all([
+    const week  = new Date();
+    week.setDate(week.getDate() - 7);
+
+    const [planRes, logsRes, recentRes] = await Promise.all([
       supabase.from('meal_plans').select('plan').eq('user_id', uid).maybeSingle(),
       supabase
         .from('daily_logs')
-        .select('meal_type, meal_name, calories, protein, carbs, fat, logged_at')
+        .select('id, meal_type, meal_name, calories, protein, carbs, fat, fibre, logged_at')
         .eq('user_id', uid).eq('date', today)
         .order('logged_at', { ascending: false }),
+      supabase
+        .from('daily_logs')
+        .select('meal_name, calories, protein, carbs, fat')
+        .eq('user_id', uid).neq('date', today)
+        .gte('date', localDateStr(week))
+        .order('logged_at', { ascending: false }).limit(20),
     ]);
+
     const raw = planRes.data?.plan as any;
     setPlan(raw?.days ?? null);
     applyLogs(logsRes.data ?? []);
+
+    // De-dupe by name, newest first. This doubles as a local macro cache:
+    // picking one of these chips skips the AI call entirely.
+    const seen = new Set<string>();
+    const unique: RecentMeal[] = [];
+    for (const r of recentRes.data ?? []) {
+      if (seen.has(r.meal_name)) continue;
+      seen.add(r.meal_name);
+      unique.push({
+        name: r.meal_name, calories: r.calories,
+        protein: r.protein, carbs: r.carbs, fat: r.fat,
+      });
+      if (unique.length >= 5) break;
+    }
+    setRecentMeals(unique);
+
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -603,28 +714,55 @@ export default function MealsScreen() {
     const today = todayStr();
     const { data } = await supabase
       .from('daily_logs')
-      .select('meal_type, meal_name, calories, protein, carbs, fat, logged_at')
+      .select('id, meal_type, meal_name, calories, protein, carbs, fat, fibre, logged_at')
       .eq('user_id', uid).eq('date', today)
       .order('logged_at', { ascending: false });
     applyLogs(data ?? []);
   }, []);
 
-  // Reduce raw log rows into the two derived states we render from
-  const applyLogs = (logs: { meal_type: string; meal_name: string; calories: number; protein: number; carbs: number; fat: number }[]) => {
-    const latest: Record<string, Meal> = {};
+  // Reduce raw log rows into the derived state we render from.
+  //
+  // A photo log writes one row per identified item, so a single meal can be
+  // several rows. They're summed into one card and every row id is kept, so
+  // de-logging removes the whole meal rather than orphaning the rest of the
+  // plate.
+  const applyLogs = (logs: LogRow[]) => {
+    const byType: Record<string, LoggedMeal> = {};
+    // The freshest row's name, kept verbatim so it can be reused on every
+    // subsequent row without re-deriving it from a string that's already
+    // been rewritten — parsing it back out of "X + N more" broke if a
+    // user-typed name (the edit sheet allows any text) itself contained
+    // " + ".
+    const firstName: Record<string, string> = {};
     for (const l of logs) {
-      if (latest[l.meal_type]) continue; // already have newer (sorted desc)
-      latest[l.meal_type] = {
-        type:     l.meal_type as MealType,
-        name:     l.meal_name,
-        calories: l.calories,
-        protein:  l.protein,
-        carbs:    l.carbs,
-        fat:      l.fat,
-      };
+      const t = l.meal_type;
+      const existing = byType[t];
+      if (!existing) {
+        firstName[t] = l.meal_name;
+        byType[t] = {
+          type:     t as MealType,
+          name:     l.meal_name,
+          calories: l.calories,
+          protein:  l.protein,
+          carbs:    l.carbs,
+          fat:      l.fat,
+          fibre:    l.fibre ?? 0,
+          logIds:   [l.id],
+        };
+        continue;
+      }
+      existing.calories += l.calories;
+      existing.protein  += l.protein;
+      existing.carbs    += l.carbs;
+      existing.fat      += l.fat;
+      existing.fibre     = (existing.fibre ?? 0) + (l.fibre ?? 0);
+      existing.logIds.push(l.id);
+      // Rows arrive newest-first, so the first name seen is the freshest.
+      // Beyond that, say how many things made up the plate.
+      existing.name = `${firstName[t]} + ${existing.logIds.length - 1} more`;
     }
-    setLoggedMealsByType(latest);
-    setLoggedTypes(new Set(Object.keys(latest)));
+    setLoggedMealsByType(byType);
+    setLoggedTypes(new Set(Object.keys(byType)));
   };
 
   useEffect(() => {
@@ -636,11 +774,26 @@ export default function MealsScreen() {
     });
   }, []);
 
+  // A scan can be started from a meal card or from the tab bar while this
+  // screen is showing, and either way the rows land without a navigation —
+  // so the provider tells us when to refetch.
+  // Resolves the user at fire time rather than closing over `userId`, which
+  // is null on the first render — a scan finishing before auth resolves would
+  // otherwise leave the just-logged meal invisible until the next focus.
+  useEffect(() => {
+    return photoLogger.onLogged(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) fetchLogsOnly(user.id);
+      });
+    });
+  }, [photoLogger, fetchLogsOnly]);
+
   // Cross-tab sync: refetch logs when meals tab gains focus.
   // Also recompute today's index in case the date rolled over midnight.
   useFocusEffect(
     useCallback(() => {
       analytics.screenViewed({ screen: 'meals' });
+      resetAtTop();
       const newToday = todayPlanIndex();
       if (newToday !== todayIndex) {
         setTodayIndex(newToday);
@@ -656,37 +809,193 @@ export default function MealsScreen() {
     fetchData(userId);
   }, [userId, fetchData]);
 
+  // The inserted row's id comes back with it, so the card can be edited or
+  // undone straight away without waiting on a refetch.
   const handleLog = useCallback(async (meal: Meal) => {
     if (!userId) return;
+    setBusyType(meal.type);
     haptic.success();
-    await supabase.from('daily_logs').insert({
-      user_id:   userId,
-      date:      todayStr(),
-      meal_type: meal.type,
-      meal_name: meal.name,
-      calories:  meal.calories,
-      protein:   meal.protein,
-      carbs:     meal.carbs,
-      fat:       meal.fat,
-    });
-    setLoggedTypes((prev) => new Set([...prev, meal.type]));
-    setLoggedMealsByType((prev) => ({ ...prev, [meal.type]: meal }));
+    try {
+      const { data, error } = await supabase.from('daily_logs').insert({
+        user_id:   userId,
+        date:      todayStr(),
+        meal_type: meal.type,
+        meal_name: meal.name,
+        calories:  meal.calories,
+        protein:   meal.protein,
+        carbs:     meal.carbs,
+        fat:       meal.fat,
+        fibre:     meal.fibre ?? 0,
+        source:    'plan',
+      }).select('id').single();
+
+      if (error || !data) { Alert.alert('Could not log', 'Please try again.'); return; }
+
+      setLoggedTypes((prev) => new Set([...prev, meal.type]));
+      setLoggedMealsByType((prev) => ({
+        ...prev,
+        [meal.type]: { ...meal, fibre: meal.fibre ?? 0, logIds: [data.id] },
+      }));
+    } finally {
+      setBusyType(null);
+    }
   }, [userId]);
 
+  // Undo a logged meal. A photo meal is several rows, so all of them go.
+  const handleDelog = useCallback(async (meal: LoggedMeal) => {
+    if (!userId) return;
+    setBusyType(meal.type);
+    haptic.warning();
+    try {
+      const { error } = await supabase
+        .from('daily_logs')
+        .delete()
+        .in('id', meal.logIds)
+        .eq('user_id', userId);
+      if (error) { Alert.alert('Could not undo', 'Please try again.'); return; }
+      analytics.logEntryDeleted();
+      await fetchLogsOnly(userId);
+    } finally {
+      setBusyType(null);
+    }
+  }, [userId, fetchLogsOnly]);
+
+  /**
+   * Save an edited meal.
+   *
+   * A photo meal spans several rows whose macros were split per item. Rather
+   * than trying to redistribute the user's corrected totals back across those
+   * items, the old rows are replaced by the single row they just described —
+   * which is what they actually told us they ate.
+   */
+  const handleEditSave = useCallback(async (next: EditableLog) => {
+    if (!userId || !editing) return;
+    setEditSaving(true);
+    haptic.light();
+    try {
+      const del = await supabase
+        .from('daily_logs')
+        .delete()
+        .in('id', editing.logIds)
+        .eq('user_id', userId);
+      if (del.error) { Alert.alert('Could not save', 'Please try again.'); return; }
+
+      const { error } = await supabase.from('daily_logs').insert({
+        user_id:   userId,
+        date:      todayStr(),
+        meal_type: next.type,
+        meal_name: next.name,
+        calories:  next.calories,
+        protein:   next.protein,
+        carbs:     next.carbs,
+        fat:       next.fat,
+        fibre:     next.fibre,
+        source:    'text',
+      });
+      if (error) { Alert.alert('Could not save', 'Please try again.'); return; }
+
+      analytics.logEntryEdited();
+      setEditing(null);
+      await fetchLogsOnly(userId);
+    } finally {
+      setEditSaving(false);
+    }
+  }, [userId, editing, fetchLogsOnly]);
+
+  // ── Quick add: "I ate something that isn't in the plan" ──
+
+  const handleLookup = useCallback(async () => {
+    const text = query.trim();
+    if (!text || !userId) return;
+    setLooking(true);
+    setLookupResult(null);
+    try {
+      const data = await invoke<NutritionResult>('lookup-nutrition', { query: text });
+      haptic.light();
+      analytics.nutritionLookedUp({ query: text });
+      setLookupResult(data);
+    } catch (err) {
+      haptic.warning();
+      // ProProvider already toasts rate limits, so only real failures alert.
+      if (!(err instanceof AIError && err.code === 'rate_limited')) {
+        Alert.alert(
+          'Could not find that',
+          'Try describing the food differently — like "1 bowl of dal" or "2 rotis"',
+        );
+      }
+    } finally {
+      setLooking(false);
+    }
+  }, [query, userId, invoke]);
+
+  const handleQuickConfirm = useCallback(async () => {
+    if (!lookupResult || !userId) return;
+    setConfirming(true);
+    haptic.success();
+    try {
+      const { error } = await supabase.from('daily_logs').insert({
+        user_id:   userId,
+        date:      todayStr(),
+        meal_type: quickType,
+        meal_name: lookupResult.name,
+        calories:  lookupResult.calories,
+        protein:   lookupResult.protein,
+        carbs:     lookupResult.carbs,
+        fat:       lookupResult.fat,
+        source:    'text',
+      });
+      if (error) { Alert.alert('Could not log', 'Please try again.'); return; }
+      analytics.logEntryAdded({
+        meal_type: quickType,
+        calories:  lookupResult.calories,
+        protein:   lookupResult.protein,
+      });
+      setLookupResult(null);
+      setQuery('');
+      await fetchLogsOnly(userId);
+    } finally {
+      setConfirming(false);
+    }
+  }, [lookupResult, userId, quickType, fetchLogsOnly]);
+
+  // A recent meal carries its macros, so picking one skips the AI call and
+  // goes straight to the confirmation card.
+  const handlePickRecent = useCallback((text: string, cached: RecentMeal | null) => {
+    setQuery(text);
+    if (cached) {
+      haptic.light();
+      setLookupResult({ ...cached, serving: '1 serving' });
+    }
+  }, []);
+
+  // Resolves the user itself rather than closing over `userId`, which is null
+  // on the first render — bailing on it would look like nothing happened.
   const handleRegenerate = useCallback(async () => {
-    if (!userId || regenerating) return;
+    if (regenerating) return;
     setRegenerating(true);
     haptic.light();
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       await invoke('generate-meal-plan');
       analytics.planRegenerated();
-      await fetchData(userId);
+      await fetchData(user.id);
     } catch {
       // ProProvider surfaces 429 toast; stale plan stays visible on other errors
     } finally {
       setRegenerating(false);
     }
-  }, [userId, regenerating, fetchData, invoke]);
+  }, [regenerating, fetchData, invoke]);
+
+  // Actions triggered from the home drawer, which navigates here first and
+  // emits once this screen has had time to mount.
+  useEffect(() => {
+    const grocery = DeviceEventEmitter.addListener(OPEN_GROCERY_LIST_EVENT, () => {
+      analytics.groceryListOpened();
+      setGroceryOpen(true);
+    });
+    return () => grocery.remove();
+  }, []);
 
   // Update a single meal in the plan (used when user swaps + toggles "update plan")
   const persistMealInPlan = useCallback(async (mealType: MealType, newMeal: Meal) => {
@@ -746,6 +1055,8 @@ export default function MealsScreen() {
   const summaryProtein  = orderedMeals.reduce((s, m) => s + m.protein,  0);
   const summaryCarbs    = orderedMeals.reduce((s, m) => s + m.carbs,    0);
   const summaryFat      = orderedMeals.reduce((s, m) => s + m.fat,      0);
+  const summaryFibre    = orderedMeals.reduce((s, m) => s + (m.fibre ?? 0), 0);
+  const hasFibre        = orderedMeals.some((m) => m.fibre != null);
 
   const dayTitle = isToday ? 'Today' : FULL_DAYS[selectedDay];
   const hasSnack = !!mealsByType.snack;
@@ -755,13 +1066,22 @@ export default function MealsScreen() {
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
         {/* ── Header ── */}
         <View style={s.headerRow}>
           <View style={s.header}>
             <Txt style={s.title}>Meal Plan</Txt>
-            <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+            {regenerating ? (
+              <View style={s.regenRow}>
+                <ActivityIndicator size="small" color={Colors.accent} />
+                <Txt style={s.regenBusyTxt}>Building a fresh plan…</Txt>
+              </View>
+            ) : (
+              <Txt style={s.subtitle}>{dayTitle} · {orderedMeals.length} {orderedMeals.length === 1 ? 'meal' : 'meals'} planned</Txt>
+            )}
           </View>
           {plan && (
             <TouchableOpacity
@@ -817,6 +1137,10 @@ export default function MealsScreen() {
               <SummaryMacro value={`${summaryCarbs}g`}   label="Carbs"   color="#E6A817" />
               <View style={s.summaryDiv} />
               <SummaryMacro value={`${summaryFat}g`}     label="Fat"     color="#9B59B6" />
+              {hasFibre && <>
+                <View style={s.summaryDiv} />
+                <SummaryMacro value={`${summaryFibre}g`} label="Fibre" color="#4E9A5F" />
+              </>}
             </View>
           </View>
         )}
@@ -840,16 +1164,23 @@ export default function MealsScreen() {
           </View>
         ) : (
           <View style={s.cards}>
-            {orderedMeals.map((meal) => (
-              <MealCard
-                key={meal.type}
-                meal={meal}
-                status={getStatus(meal)}
-                onLog={() => handleLog(meal)}
-                onSwap={() => { analytics.swapModalOpened({ meal_type: meal.type, source: 'meals' }); setSwapTarget(meal); }}
-                onView={() => { analytics.recipeViewed({ meal_type: meal.type, meal_name: meal.name }); router.push({ pathname: '/recipe/[id]', params: { id: encodeURIComponent(meal.name), type: meal.type, calories: String(meal.calories), protein: String(meal.protein), carbs: String(meal.carbs), fat: String(meal.fat) } }); }}
-              />
-            ))}
+            {orderedMeals.map((meal) => {
+              const logged = loggedMealsByType[meal.type];
+              return (
+                <MealCard
+                  key={meal.type}
+                  meal={meal}
+                  status={getStatus(meal)}
+                  busy={busyType === meal.type}
+                  onLog={() => handleLog(meal)}
+                  onScan={() => photoLogger.start({ mealType: meal.type, source: 'ask' })}
+                  onSwap={() => { analytics.swapModalOpened({ meal_type: meal.type, source: 'meals' }); setSwapTarget(meal); }}
+                  onEdit={() => { if (logged) setEditing(logged); }}
+                  onDelog={() => { if (logged) handleDelog(logged); }}
+                  onView={() => { analytics.recipeViewed({ meal_type: meal.type, meal_name: meal.name }); router.push({ pathname: '/recipe/[id]', params: { id: encodeURIComponent(meal.name), type: meal.type, calories: String(meal.calories), protein: String(meal.protein), carbs: String(meal.carbs), fat: String(meal.fat) } }); }}
+                />
+              );
+            })}
 
             {/* Promote "Add snack" if today and no snack planned */}
             {isToday && !hasSnack && (
@@ -858,8 +1189,37 @@ export default function MealsScreen() {
           </View>
         )}
 
-
+        {/* Off-plan logging. Only on today — you can't have eaten Thursday's
+            lunch on Tuesday, and offering to log it would be nonsense. */}
+        {isToday && !loading && (
+          <QuickAddCard
+            mealType={nextMealTypeByTime()}
+            recentMeals={recentMeals}
+            query={query}
+            onChangeQuery={setQuery}
+            onSubmit={handleLookup}
+            looking={looking}
+            result={lookupResult}
+            selectedType={quickType}
+            onSelectType={setQuickType}
+            onConfirm={handleQuickConfirm}
+            onDiscard={() => { setLookupResult(null); setQuery(''); }}
+            confirming={confirming}
+            onScan={() => photoLogger.start({ mealType: quickType })}
+            onPickImage={() => photoLogger.start({ mealType: quickType, source: 'library' })}
+            scanBusy={photoLogger.busy}
+            onPickRecent={handlePickRecent}
+          />
+        )}
       </ScrollView>
+
+      <EditLogModal
+        entry={editing}
+        visible={editing !== null}
+        saving={editSaving}
+        onSave={handleEditSave}
+        onClose={() => setEditing(null)}
+      />
 
       <GroceryListSheet
         visible={groceryOpen}
@@ -876,7 +1236,7 @@ export default function MealsScreen() {
         onConfirm={async (result: SwapResult, updatePlan: boolean) => {
           if (swapTarget && userId) {
             // Always log it for today
-            await supabase.from('daily_logs').insert({
+            const { data: inserted } = await supabase.from('daily_logs').insert({
               user_id:   userId,
               date:      todayStr(),
               meal_type: swapTarget.type,
@@ -885,7 +1245,9 @@ export default function MealsScreen() {
               protein:   result.protein,
               carbs:     result.carbs,
               fat:       result.fat,
-            });
+              source:    'plan',
+            }).select('id').single();
+
             if (addingSnack) {
               analytics.snackAdded({ calories: result.calories, protein: result.protein });
             } else {
@@ -899,6 +1261,8 @@ export default function MealsScreen() {
               protein:  result.protein,
               carbs:    result.carbs,
               fat:      result.fat,
+              fibre:    0,
+              logIds:   inserted ? [inserted.id] : [],
             }}));
 
             // Optionally update the plan permanently
@@ -965,6 +1329,12 @@ const s = StyleSheet.create({
   emptyBody:      { fontSize: 14, color: Colors.secondary, lineHeight: 20, textAlign: 'center' },
   generateBtn:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, height: 48, paddingHorizontal: 24, backgroundColor: Colors.accent, borderRadius: 14 },
   generateBtnTxt: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', lineHeight: 20 },
+
+  // Regeneration takes ~30s and the empty-state button that starts it has no
+  // spinner of its own, so the subtitle carries the progress rather than the
+  // screen looking inert.
+  regenRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  regenBusyTxt:     { fontSize: 13, color: Colors.accent, fontWeight: '600', lineHeight: 18 },
 
   regenBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
   regenBtnDisabled: { opacity: 0.5 },

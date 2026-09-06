@@ -6,7 +6,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  X, ChefHat, Sparkles, Calendar, RefreshCw, Heart,
+  X, ChefHat, Sparkles, Camera, RefreshCw, Heart,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
@@ -31,9 +31,9 @@ const STEPS = [
   },
   {
     n: '03',
-    icon: Calendar,
+    icon: Camera,
     title: 'You log what you eat',
-    body: "Stick to the plan, or log something else with a quick AI lookup. Every meal counts toward today's targets — and your streak.",
+    body: "Photograph your plate and AI reads what's on it — dish by dish, portions included. Ate something else? Describe it instead. Every meal counts toward today's targets, and your streak.",
   },
   {
     n: '04',
