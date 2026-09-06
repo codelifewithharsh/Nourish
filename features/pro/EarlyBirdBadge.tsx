@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Crown, Sparkles } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { Txt } from '@/components/ui';
+import { Txt } from '@/components/ui/Typography';
 import { haptic } from '@/lib/haptics';
 import { useProMember } from './ProContext';
 import { EarlyBirdSheet } from './EarlyBirdSheet';

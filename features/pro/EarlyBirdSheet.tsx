@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Sparkles, Check, Crown, Calendar, Heart } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { Txt } from '@/components/ui';
+import { Txt } from '@/components/ui/Typography';
 import { haptic } from '@/lib/haptics';
 
 interface Props {

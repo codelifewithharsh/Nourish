@@ -42,7 +42,6 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="meals" />
-      <Tabs.Screen name="log" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

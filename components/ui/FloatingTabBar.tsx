@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, CalendarDays, Camera, User } from 'lucide-react-native';
 import { LucideIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { haptic } from '@/lib/haptics';
+import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
 
-type TabName = 'index' | 'meals' | 'log' | 'profile';
+type TabName = 'index' | 'meals' | 'profile';
 
 /** The subset of a tab route this component touches. */
 interface Route { key: string; name: string }
@@ -17,22 +18,21 @@ interface TabConfig {
   Icon:  LucideIcon;
 }
 
-// Three navigation tabs live inside the pill. `log` is deliberately not one
-// of them — it's the detached circle to the right, because logging a meal is
-// something you *do*, not a place you go.
-const TAB_CONFIG: Record<Exclude<TabName, 'log'>, TabConfig> = {
+// Three navigation tabs live inside the pill. The camera is deliberately not
+// one of them — it's the detached circle to the right, because logging a meal
+// is something you *do*, not a place you go. It opens the camera directly
+// rather than navigating anywhere.
+const TAB_CONFIG: Record<TabName, TabConfig> = {
   index:   { label: 'Home', Icon: Home },
   meals:   { label: 'Plan', Icon: CalendarDays },
   profile: { label: 'Me',   Icon: User },
 };
 
-const ACTION_TAB: TabName = 'log';
-
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { start, busy } = usePhotoLogger();
 
-  const navTabs     = (state.routes as Route[]).filter((r) => r.name !== ACTION_TAB);
-  const actionRoute = (state.routes as Route[]).find((r) => r.name === ACTION_TAB);
+  const navTabs = state.routes as Route[];
 
   const go = (routeName: string, key: string, focused: boolean) => {
     const event = navigation.emit({ type: 'tabPress', target: key, canPreventDefault: true });
@@ -45,16 +45,10 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
         {/* Navigation pill */}
         <View style={styles.pill}>
           {navTabs.map((route: Route) => {
-            const config = TAB_CONFIG[route.name as Exclude<TabName, 'log'>];
+            const config = TAB_CONFIG[route.name as TabName];
             if (!config) return null;
             const routeIndex = (state.routes as Route[]).findIndex((r) => r.key === route.key);
-            // The action route lives outside the pill, so while it's open no
-            // tab would be lit and the bar would read as "nowhere". Home is
-            // the conceptual parent of logging, so it stays lit.
-            const actionFocused = (state.routes as Route[])[state.index]?.name === ACTION_TAB;
-            const isFocused = actionFocused
-              ? route.name === 'index'
-              : state.index === routeIndex;
+            const isFocused = state.index === routeIndex;
 
             return (
               <TouchableOpacity
@@ -78,22 +72,21 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           })}
         </View>
 
-        {/* Detached action button */}
-        {actionRoute && (() => {
-          const routeIndex = (state.routes as Route[]).findIndex((r) => r.key === actionRoute.key);
-          const isFocused  = state.index === routeIndex;
-          return (
-            <TouchableOpacity
-              onPress={() => { haptic.medium(); go(actionRoute.name, actionRoute.key, isFocused); }}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Log a meal with your camera"
-              style={[styles.actionBtn, isFocused && styles.actionBtnActive]}
-            >
-              <Camera size={25} color="#FFFFFF" strokeWidth={2.3} />
-            </TouchableOpacity>
-          );
-        })()}
+        {/* Detached action button — opens the camera in place, over whatever
+            screen the user is on, rather than navigating to a capture tab. */}
+        <TouchableOpacity
+          onPress={() => { haptic.medium(); start(); }}
+          activeOpacity={0.85}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Log a meal with your camera"
+          accessibilityState={{ disabled: busy }}
+          style={[styles.actionBtn, busy && styles.actionBtnActive]}
+        >
+          {busy
+            ? <ActivityIndicator size="small" color="#FFFFFF" />
+            : <Camera size={25} color="#FFFFFF" strokeWidth={2.3} />}
+        </TouchableOpacity>
       </View>
     </View>
   );

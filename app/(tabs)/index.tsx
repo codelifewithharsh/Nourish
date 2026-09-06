@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl,
   Alert,
@@ -16,6 +16,8 @@ import { NutritionsCard, NUTRIENT_COLORS } from '@/features/home/components/Nutr
 import { WaterBody } from '@/features/home/components/WaterBody';
 import { NextMealCard } from '@/features/home/components/NextMealCard';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
+import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
+import type { MealType } from '@/features/nutrition/components/PhotoResultSheet';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
@@ -50,6 +52,7 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing]   = useState(false);
   const [loggingMeal, setLoggingMeal] = useState(false);
   const [swapOpen, setSwapOpen]       = useState(false);
+  const photoLogger = usePhotoLogger();
   const insets = useSafeAreaInsets();
   // FloatingTabBar is absolutely positioned, so content must reserve its
   // height itself: 62px pill + 10px wrapper padding + safe area + breathing room.
@@ -59,6 +62,10 @@ export default function TodayScreen() {
     analytics.screenViewed({ screen: 'home' });
     refresh();
   }, [refresh]));
+
+  // A scan started from the tab bar lands rows without any navigation, so
+  // nothing would otherwise tell the dashboard its numbers are stale.
+  useEffect(() => photoLogger.onLogged(refresh), [photoLogger, refresh]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -229,7 +236,7 @@ export default function TodayScreen() {
               analytics.swapModalOpened({ meal_type: nextMeal.type, source: 'home' });
               setSwapOpen(true);
             }}
-            onScan={() => router.push('/(tabs)/log')}
+            onScan={() => photoLogger.start({ mealType: nextMeal.type as MealType })}
             onView={() => router.push({
               pathname: '/recipe/[id]',
               params: {

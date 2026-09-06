@@ -195,8 +195,8 @@ export function HomeDrawer({
               <DrawerItem
                 icon={<Sparkles size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Log what I ate"
-                hint="AI nutrition lookup"
-                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/log'), 250); }}
+                hint="Scan a photo or describe it"
+                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/meals'), 250); }}
               />
               <DrawerItem
                 icon={<Bell size={18} color={Colors.accent} strokeWidth={2.2} />}
