@@ -25,7 +25,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "in.nourish.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -51,7 +54,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Nourish uses your photos so you can log a meal from a picture.",
-          "cameraPermission": "Nourish uses your camera so you can log a meal by photographing it."
+          "cameraPermission": "Nourish uses your camera so you can log a meal by photographing it.",
+          "microphonePermission": false
         }
       ]
     ],
