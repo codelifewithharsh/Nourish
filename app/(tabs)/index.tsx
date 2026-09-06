@@ -5,13 +5,14 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
-import { Bell, GlassWater, Camera, Flame } from 'lucide-react-native';
+import { Bell, Camera, Flame } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius } from '@/constants/spacing';
 import { Txt } from '@/components/ui';
 import { useDashboard } from '@/features/home/useDashboard';
-import { CalorieRing } from '@/features/home/components/CalorieRing';
-import { NutrientBar } from '@/features/home/components/NutrientBar';
+import { IntakeCard } from '@/features/home/components/IntakeCard';
+import { NutritionsCard, NUTRIENT_COLORS } from '@/features/home/components/NutritionsCard';
+import { WaterBody } from '@/features/home/components/WaterBody';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
@@ -126,10 +127,8 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* The anchor: calories left today */}
-        <View style={s.ringCard}>
-          <CalorieRing eaten={eaten.calories} target={targets.calories} />
-        </View>
+        {/* The anchor: how much of today's budget is used */}
+        <IntakeCard eaten={eaten.calories} target={targets.calories} />
 
         {/* One consequence line, only on a sustained pattern. Never a wall of
             warnings, and never a judgement on a single day. */}
@@ -142,16 +141,18 @@ export default function TodayScreen() {
         )}
 
         {/* Macros */}
-        <View style={s.card}>
-          <NutrientBar label="Protein" eaten={eaten.protein} target={targets.protein} unit="g"
-            highlight={insight?.key === 'protein' && insight.severity === 'warn'} />
-          <NutrientBar label="Carbs"   eaten={eaten.carbs}   target={targets.carbs}   unit="g" />
-          <NutrientBar label="Fat"     eaten={eaten.fat}     target={targets.fat}     unit="g" />
-          <NutrientBar label="Fibre"   eaten={eaten.fibre}   target={targets.fibre}   unit="g"
-            highlight={insight?.key === 'fibre' && insight.severity === 'warn'} />
-          <NutrientBar label="Sodium"  eaten={eaten.sodium}  target={targets.sodium}  unit="mg" isLimit
-            highlight={insight?.key === 'sodium' && insight.severity === 'warn'} />
-        </View>
+        <NutritionsCard
+          rows={[
+            { label: 'Carbs',   eaten: eaten.carbs,   target: targets.carbs,   unit: 'g',  color: NUTRIENT_COLORS.carbs },
+            { label: 'Fat',     eaten: eaten.fat,     target: targets.fat,     unit: 'g',  color: NUTRIENT_COLORS.fat },
+            { label: 'Protein', eaten: eaten.protein, target: targets.protein, unit: 'g',  color: NUTRIENT_COLORS.protein,
+              highlight: insight?.key === 'protein' && insight.severity === 'warn' },
+            { label: 'Fibre',   eaten: eaten.fibre,   target: targets.fibre,   unit: 'g',  color: NUTRIENT_COLORS.fibre,
+              highlight: insight?.key === 'fibre' && insight.severity === 'warn' },
+            { label: 'Sodium',  eaten: eaten.sodium,  target: targets.sodium,  unit: 'mg', color: NUTRIENT_COLORS.sodium,
+              isLimit: true, highlight: insight?.key === 'sodium' && insight.severity === 'warn' },
+          ]}
+        />
 
         {/* Primary action */}
         <TouchableOpacity
@@ -206,29 +207,8 @@ export default function TodayScreen() {
         )}
 
         {/* Water */}
-        <View style={s.card}>
-          <View style={s.waterHead}>
-            <Txt style={s.sectionLabel}>Water</Txt>
-            <Txt style={s.waterCount}>{data.glasses} / 10</Txt>
-          </View>
-          <View style={s.dropRow}>
-            {Array.from({ length: 10 }).map((_, i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => logWater(i + 1 === data.glasses ? data.glasses - 1 : i + 1)}
-                activeOpacity={0.65}
-                hitSlop={4}
-              >
-                <GlassWater
-                  size={17}
-                  color={i < data.glasses ? '#5B8DB8' : '#C8D0D8'}
-                  fill={i < data.glasses ? '#D6E8F5' : 'transparent'}
-                  strokeWidth={i < data.glasses ? 2.2 : 1.5}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <WaterBody glasses={data.glasses} target={10} onChange={logWater} />
+
       </ScrollView>
 
       <HomeDrawer
@@ -269,7 +249,6 @@ const s = StyleSheet.create({
   streakTxt: { fontSize: 13, fontWeight: '700', color: '#8A6100' },
   bellBtn:   { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
 
-  ringCard: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, paddingVertical: 26, alignItems: 'center' },
 
   insight:     { backgroundColor: '#FFF4E0', borderRadius: BorderRadius.md, padding: 14 },
   insightGood: { backgroundColor: Colors.accentLight },
@@ -294,7 +273,4 @@ const s = StyleSheet.create({
   logName:  { fontSize: 14, fontWeight: '600', color: Colors.primary },
   logMeta:  { fontSize: 12, color: Colors.secondary, marginTop: 2 },
 
-  waterHead:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  waterCount: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-  dropRow:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
 });
