@@ -25,7 +25,7 @@ import {
 import { EditLogModal, type EditableLog } from '@/features/nutrition/components/EditLogModal';
 import { AIError } from '@/lib/aiClient';
 import { localDateStr } from '@/lib/date';
-import { OPEN_GROCERY_LIST_EVENT, REGENERATE_PLAN_EVENT } from '@/lib/events';
+import { OPEN_GROCERY_LIST_EVENT } from '@/lib/events';
 import { analytics } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -961,9 +961,8 @@ export default function MealsScreen() {
     }
   }, []);
 
-  // Resolves the user itself rather than closing over `userId`: the drawer
-  // can trigger this moments after navigating here, before the auth lookup
-  // has resolved, and bailing on a null id would look like nothing happened.
+  // Resolves the user itself rather than closing over `userId`, which is null
+  // on the first render — bailing on it would look like nothing happened.
   const handleRegenerate = useCallback(async () => {
     if (regenerating) return;
     setRegenerating(true);
@@ -988,11 +987,8 @@ export default function MealsScreen() {
       analytics.groceryListOpened();
       setGroceryOpen(true);
     });
-    const regen = DeviceEventEmitter.addListener(REGENERATE_PLAN_EVENT, () => {
-      handleRegenerate();
-    });
-    return () => { grocery.remove(); regen.remove(); };
-  }, [handleRegenerate]);
+    return () => grocery.remove();
+  }, []);
 
   // Update a single meal in the plan (used when user swaps + toggles "update plan")
   const persistMealInPlan = useCallback(async (mealType: MealType, newMeal: Meal) => {
@@ -1327,9 +1323,9 @@ const s = StyleSheet.create({
   generateBtn:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, height: 48, paddingHorizontal: 24, backgroundColor: Colors.accent, borderRadius: 14 },
   generateBtnTxt: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', lineHeight: 20 },
 
-  // Regeneration takes ~30s. Triggered from the drawer there's no button to
-  // spin, so the subtitle carries the progress instead of the screen looking
-  // inert.
+  // Regeneration takes ~30s and the empty-state button that starts it has no
+  // spinner of its own, so the subtitle carries the progress rather than the
+  // screen looking inert.
   regenRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
   regenBusyTxt:     { fontSize: 13, color: Colors.accent, fontWeight: '600', lineHeight: 18 },
 

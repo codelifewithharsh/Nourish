@@ -10,4 +10,3 @@ export const MEAL_NOTIFS_TOGGLED_EVENT = 'meal_notifs_toggled';
 // the drawer closes and navigates, then emits, because the target screen may
 // not be mounted yet when the row is tapped.
 export const OPEN_GROCERY_LIST_EVENT = 'open_grocery_list';
-export const REGENERATE_PLAN_EVENT   = 'regenerate_plan';

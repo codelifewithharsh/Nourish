@@ -8,15 +8,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   User as UserIcon, Bell, BookOpen, MessageSquareHeart,
-  Settings, ChevronRight, LogOut, Flame, ShoppingCart, Sparkles,
+  Settings, ChevronRight, LogOut, Flame, ShoppingCart, Calendar,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { haptic } from '@/lib/haptics';
-import {
-  SCROLL_TO_SECTION_EVENT, OPEN_GROCERY_LIST_EVENT, REGENERATE_PLAN_EVENT,
-} from '@/lib/events';
+import { SCROLL_TO_SECTION_EVENT, OPEN_GROCERY_LIST_EVENT } from '@/lib/events';
 import { OGAvatar } from '@/features/pro';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -185,13 +183,16 @@ export function HomeDrawer({
             </TouchableOpacity>
 
             {/* ── Your plan ── */}
-            {/* Plain navigation to the Plan tab isn't worth a row — the tab
-                bar already does that in one tap. These two are the actions
-                buried inside it: the grocery list behind a header icon, and
-                regeneration, which is otherwise only reachable when no plan
-                exists at all. */}
+            {/* Mirrors the profile pair above: the destination itself, then
+                the thing inside it worth reaching directly. */}
             <View style={d.section}>
               <Txt style={d.sectionLabel}>Your plan</Txt>
+              <DrawerItem
+                icon={<Calendar size={18} color={Colors.accent} strokeWidth={2.2} />}
+                label="My meal plan"
+                hint="Today's meals & 7-day view"
+                onPress={() => { haptic.light(); close(); setTimeout(() => router.push('/(tabs)/meals'), 250); }}
+              />
               <DrawerItem
                 icon={<ShoppingCart size={18} color={Colors.accent} strokeWidth={2.2} />}
                 label="Grocery list"
@@ -202,19 +203,6 @@ export function HomeDrawer({
                   setTimeout(() => {
                     router.push('/(tabs)/meals');
                     setTimeout(() => DeviceEventEmitter.emit(OPEN_GROCERY_LIST_EVENT), 400);
-                  }, 250);
-                }}
-              />
-              <DrawerItem
-                icon={<Sparkles size={18} color={Colors.accent} strokeWidth={2.2} />}
-                label="Regenerate plan"
-                hint="Build a fresh 7-day plan"
-                onPress={() => {
-                  haptic.light();
-                  close();
-                  setTimeout(() => {
-                    router.push('/(tabs)/meals');
-                    setTimeout(() => DeviceEventEmitter.emit(REGENERATE_PLAN_EVENT), 400);
                   }, 250);
                 }}
               />
