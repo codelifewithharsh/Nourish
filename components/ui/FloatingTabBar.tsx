@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, UtensilsCrossed, Camera, User } from 'lucide-react-native';
+import { Home, CalendarDays, Camera, User } from 'lucide-react-native';
 import { LucideIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { haptic } from '@/lib/haptics';
@@ -17,7 +17,7 @@ interface TabConfig {
 
 const TAB_CONFIG: Record<TabName, TabConfig> = {
   index: { label: 'Home', Icon: Home },
-  meals: { label: 'Meals', Icon: UtensilsCrossed },
+  meals: { label: 'Plan', Icon: CalendarDays },
   log: { label: 'Log', Icon: Camera },
   profile: { label: 'You', Icon: User },
 };

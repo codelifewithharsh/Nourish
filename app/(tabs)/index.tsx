@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Bell, GlassWater, Camera, Flame } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -44,6 +44,10 @@ export default function TodayScreen() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
+  const insets = useSafeAreaInsets();
+  // FloatingTabBar is absolutely positioned, so content must reserve its
+  // height itself: 60px pill + 14px camera lift + 8px wrapper + safe area.
+  const tabBarClearance = 82 + insets.bottom + 24;
 
   useFocusEffect(useCallback(() => {
     analytics.screenViewed({ screen: 'home' });
@@ -85,7 +89,7 @@ export default function TodayScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <ScrollView
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingBottom: tabBarClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
@@ -251,11 +255,11 @@ export default function TodayScreen() {
 const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: Colors.background },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:  { padding: 20, paddingBottom: 120, gap: 14 },
+  scroll:  { padding: 20, gap: 14 },
 
   topBar:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar:  { flex: 1, borderRadius: 11, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatar:  { width: 44, height: 44, borderRadius: 13, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarImg: { width: '100%', height: '100%' },
   avatarTxt: { fontSize: 15, fontWeight: '700', color: Colors.accent },
   greeting:  { fontSize: 12, color: Colors.secondary },
