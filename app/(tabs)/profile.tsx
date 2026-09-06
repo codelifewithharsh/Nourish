@@ -36,6 +36,7 @@ import { analytics } from '@/lib/analytics';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 type Goal = 'muscle_gain' | 'fat_loss' | 'stay_healthy';
+type Sex = 'male' | 'female' | 'unspecified';
 type ActivityLevel = 'sedentary' | 'lightly_active' | 'very_active';
 type DietType = 'pure_veg' | 'vegan' | 'eggetarian' | 'non_veg';
 type CuisinePreference = 'north_indian' | 'south_indian' | 'continental' | 'indian_fusion' | 'indo_chinese';
@@ -45,6 +46,7 @@ interface Profile {
   name: string | null;
   email: string;
   goal: Goal | null;
+  sex: Sex | null;
   age: number | null;
   weight_kg: number | null;
   height_cm: number | null;
@@ -296,6 +298,7 @@ export default function YouScreen() {
       const { dailyCalories, dailyProtein } = calculateNutrition(
         merged.weight_kg, merged.height_cm, merged.age,
         merged.activity_level as ActivityLevel, merged.goal as Goal,
+        (merged.sex ?? 'unspecified') as Sex,
       );
       finalUpdates.daily_calories = dailyCalories;
       finalUpdates.daily_protein  = dailyProtein;
