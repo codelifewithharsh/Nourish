@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl,
+  Alert,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { useDashboard } from '@/features/home/useDashboard';
 import { IntakeCard } from '@/features/home/components/IntakeCard';
 import { NutritionsCard, NUTRIENT_COLORS } from '@/features/home/components/NutritionsCard';
 import { WaterBody } from '@/features/home/components/WaterBody';
+import { NextMealCard } from '@/features/home/components/NextMealCard';
 import { HomeDrawer } from '@/components/HomeDrawer';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
@@ -45,6 +47,7 @@ export default function TodayScreen() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
+  const [loggingMeal, setLoggingMeal] = useState(false);
   const insets = useSafeAreaInsets();
   // FloatingTabBar is absolutely positioned, so content must reserve its
   // height itself: 62px pill + 10px wrapper padding + safe area + breathing room.
@@ -60,6 +63,36 @@ export default function TodayScreen() {
     refresh();
     setRefreshing(false);
   }, [refresh]);
+
+  // Logs the planned meal as eaten, with its planned macros. This is the
+  // no-camera path for when someone actually ate what the plan suggested.
+  const logPlannedMeal = useCallback(async () => {
+    if (!userId || !data?.nextMeal) return;
+    setLoggingMeal(true);
+    try {
+      const { error } = await supabase.from('daily_logs').insert({
+        user_id:   userId,
+        date:      todayStr(),
+        meal_type: data.nextMeal.type,
+        meal_name: data.nextMeal.name,
+        calories:  data.nextMeal.calories,
+        protein:   data.nextMeal.protein,
+        source:    'plan',
+      });
+      if (error) {
+        Alert.alert('Could not log', 'Please try again.');
+        return;
+      }
+      analytics.mealLogged({
+        meal_type: data.nextMeal.type,
+        calories:  data.nextMeal.calories,
+        protein:   data.nextMeal.protein,
+      });
+      refresh();
+    } finally {
+      setLoggingMeal(false);
+    }
+  }, [userId, data, refresh]);
 
   const logWater = useCallback(async (glasses: number) => {
     if (!userId) return;
@@ -84,7 +117,7 @@ export default function TodayScreen() {
 
   releaseSplash();
 
-  const { eaten, targets, insights, logged } = data;
+  const { eaten, targets, insights, logged, nextMeal } = data;
   const insight = insights[0];
 
   return (
@@ -156,6 +189,25 @@ export default function TodayScreen() {
             <WaterBody glasses={data.glasses} target={10} onChange={logWater} />
           </View>
         </View>
+
+        {/* Next planned meal */}
+        {nextMeal && (
+          <NextMealCard
+            meal={nextMeal}
+            logging={loggingMeal}
+            onLog={logPlannedMeal}
+            onPress={() => router.push({
+              pathname: '/recipe/[id]',
+              params: {
+                id: encodeURIComponent(nextMeal.name),
+                type: nextMeal.type,
+                calories: String(nextMeal.calories),
+                protein: String(nextMeal.protein),
+                carbs: '0', fat: '0',
+              },
+            })}
+          />
+        )}
 
         {/* Today's log, with the user's own photos */}
         {logged.length > 0 && (
