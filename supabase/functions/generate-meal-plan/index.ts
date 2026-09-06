@@ -6,39 +6,39 @@ const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const FALLBACK_PLAN = {
   days: [
     { day: 1, meals: [
-      { type: "breakfast", name: "Masala Oats",           calories: 320, protein: 14, carbs: 48, fat: 8 },
-      { type: "lunch",     name: "Dal Tadka with Rice",   calories: 480, protein: 18, carbs: 72, fat: 10 },
-      { type: "dinner",    name: "Paneer Bhurji with Roti", calories: 520, protein: 28, carbs: 44, fat: 18 },
+      { type: "breakfast", name: "Masala Oats",           calories: 320, protein: 14, carbs: 48, fat: 8, fibre: 8 },
+      { type: "lunch",     name: "Dal Tadka with Rice",   calories: 480, protein: 18, carbs: 72, fat: 10, fibre: 11 },
+      { type: "dinner",    name: "Paneer Bhurji with Roti", calories: 520, protein: 28, carbs: 44, fat: 18, fibre: 7 },
     ], total_calories: 1320, total_protein: 60 },
     { day: 2, meals: [
-      { type: "breakfast", name: "Poha with Peanuts",     calories: 350, protein: 10, carbs: 58, fat: 9 },
-      { type: "lunch",     name: "Rajma Rice",            calories: 500, protein: 20, carbs: 78, fat: 8 },
-      { type: "dinner",    name: "Aloo Gobi with Paratha",calories: 490, protein: 12, carbs: 68, fat: 16 },
+      { type: "breakfast", name: "Poha with Peanuts",     calories: 350, protein: 10, carbs: 58, fat: 9, fibre: 5 },
+      { type: "lunch",     name: "Rajma Rice",            calories: 500, protein: 20, carbs: 78, fat: 8, fibre: 14 },
+      { type: "dinner",    name: "Aloo Gobi with Paratha",calories: 490, protein: 12, carbs: 68, fat: 16, fibre: 9 },
     ], total_calories: 1340, total_protein: 42 },
     { day: 3, meals: [
-      { type: "breakfast", name: "Besan Chilla",          calories: 280, protein: 16, carbs: 32, fat: 10 },
-      { type: "lunch",     name: "Chole Rice",            calories: 480, protein: 18, carbs: 72, fat: 10 },
-      { type: "dinner",    name: "Mixed Veg Curry with Rice", calories: 440, protein: 14, carbs: 66, fat: 10 },
+      { type: "breakfast", name: "Besan Chilla",          calories: 280, protein: 16, carbs: 32, fat: 10, fibre: 7 },
+      { type: "lunch",     name: "Chole Rice",            calories: 480, protein: 18, carbs: 72, fat: 10, fibre: 13 },
+      { type: "dinner",    name: "Mixed Veg Curry with Rice", calories: 440, protein: 14, carbs: 66, fat: 10, fibre: 9 },
     ], total_calories: 1280, total_protein: 48 },
     { day: 4, meals: [
-      { type: "breakfast", name: "Upma with Vegetables",  calories: 300, protein: 9,  carbs: 52, fat: 7 },
-      { type: "lunch",     name: "Palak Paneer with Roti",calories: 520, protein: 24, carbs: 46, fat: 20 },
-      { type: "dinner",    name: "Moong Dal Khichdi",     calories: 420, protein: 18, carbs: 64, fat: 8 },
+      { type: "breakfast", name: "Upma with Vegetables",  calories: 300, protein: 9,  carbs: 52, fat: 7, fibre: 6 },
+      { type: "lunch",     name: "Palak Paneer with Roti",calories: 520, protein: 24, carbs: 46, fat: 20, fibre: 8 },
+      { type: "dinner",    name: "Moong Dal Khichdi",     calories: 420, protein: 18, carbs: 64, fat: 8, fibre: 10 },
     ], total_calories: 1240, total_protein: 51 },
     { day: 5, meals: [
-      { type: "breakfast", name: "Idli Sambar",           calories: 310, protein: 12, carbs: 56, fat: 5 },
-      { type: "lunch",     name: "Bhindi Masala with Dal Rice", calories: 490, protein: 16, carbs: 74, fat: 10 },
-      { type: "dinner",    name: "Tofu Stir Fry with Roti",calories: 480, protein: 26, carbs: 42, fat: 18 },
+      { type: "breakfast", name: "Idli Sambar",           calories: 310, protein: 12, carbs: 56, fat: 5, fibre: 7 },
+      { type: "lunch",     name: "Bhindi Masala with Dal Rice", calories: 490, protein: 16, carbs: 74, fat: 10, fibre: 12 },
+      { type: "dinner",    name: "Tofu Stir Fry with Roti",calories: 480, protein: 26, carbs: 42, fat: 18, fibre: 9 },
     ], total_calories: 1280, total_protein: 54 },
     { day: 6, meals: [
-      { type: "breakfast", name: "Dosa with Coconut Chutney", calories: 340, protein: 8,  carbs: 60, fat: 8 },
-      { type: "lunch",     name: "Matar Paneer with Rice",calories: 540, protein: 22, carbs: 70, fat: 16 },
-      { type: "dinner",    name: "Vegetable Pulao with Raita",calories: 460, protein: 14, carbs: 68, fat: 10 },
+      { type: "breakfast", name: "Dosa with Coconut Chutney", calories: 340, protein: 8,  carbs: 60, fat: 8, fibre: 4 },
+      { type: "lunch",     name: "Matar Paneer with Rice",calories: 540, protein: 22, carbs: 70, fat: 16, fibre: 10 },
+      { type: "dinner",    name: "Vegetable Pulao with Raita",calories: 460, protein: 14, carbs: 68, fat: 10, fibre: 8 },
     ], total_calories: 1340, total_protein: 44 },
     { day: 7, meals: [
-      { type: "breakfast", name: "Sprouted Moong Salad",  calories: 220, protein: 14, carbs: 30, fat: 4 },
-      { type: "lunch",     name: "Kadai Paneer with Naan",calories: 580, protein: 26, carbs: 62, fat: 22 },
-      { type: "dinner",    name: "Dal Makhani with Rice", calories: 500, protein: 20, carbs: 72, fat: 12 },
+      { type: "breakfast", name: "Sprouted Moong Salad",  calories: 220, protein: 14, carbs: 30, fat: 4, fibre: 11 },
+      { type: "lunch",     name: "Kadai Paneer with Naan",calories: 580, protein: 26, carbs: 62, fat: 22, fibre: 8 },
+      { type: "dinner",    name: "Dal Makhani with Rice", calories: 500, protein: 20, carbs: 72, fat: 12, fibre: 13 },
     ], total_calories: 1300, total_protein: 60 },
   ],
 };
@@ -95,6 +95,10 @@ function planCacheKey(p: ProfileShape): string {
   const allergyKey    = normaliseIngredients(p.allergies) || "none";
   const medical       = [...(p.medical_flags ?? [])].sort().join(",") || "none";
   return [
+    // Schema version. Plans cached before fibre was part of the output are
+    // still valid JSON, so nothing would evict them — but they'd render with
+    // no fibre. Bumping this retires them.
+    "v2",
     p.goal      ?? "stay_healthy",
     p.diet_type ?? "vegetarian",
     cuisines,
@@ -194,10 +198,10 @@ function buildUserPrompt(profile: ProfileShape): string {
   // The worked example must agree with mealsRule, or the model follows the
   // example and silently ignores the rule.
   const EXAMPLE_ROW: Record<string, string> = {
-    breakfast: '        { "type": "breakfast", "name": "meal name", "calories": 320, "protein": 14, "carbs": 48, "fat": 8 }',
-    lunch:     '        { "type": "lunch", "name": "meal name", "calories": 480, "protein": 22, "carbs": 60, "fat": 12 }',
-    snack:     '        { "type": "snack", "name": "meal name", "calories": 180, "protein": 8, "carbs": 22, "fat": 6 }',
-    dinner:    '        { "type": "dinner", "name": "meal name", "calories": 500, "protein": 24, "carbs": 55, "fat": 14 }',
+    breakfast: '        { "type": "breakfast", "name": "meal name", "calories": 320, "protein": 14, "carbs": 48, "fat": 8, "fibre": 6 }',
+    lunch:     '        { "type": "lunch", "name": "meal name", "calories": 480, "protein": 22, "carbs": 60, "fat": 12, "fibre": 9 }',
+    snack:     '        { "type": "snack", "name": "meal name", "calories": 180, "protein": 8, "carbs": 22, "fat": 6, "fibre": 3 }',
+    dinner:    '        { "type": "dinner", "name": "meal name", "calories": 500, "protein": 24, "carbs": 55, "fat": 14, "fibre": 8 }',
   };
   const exampleTypes = mealsPerDay === 2
     ? ["lunch", "dinner"]
@@ -223,6 +227,7 @@ Rules:
 - Spread calories and protein evenly across meals
 - Total daily calories must be within 100 kcal of the target
 - Total daily protein must be within 10g of the target
+- Total daily fibre should reach at least 30g (ICMR/WHO adult guidance); dal, whole grains, sabzi and salad are what get you there
 - Prioritise home-cooked, balanced Indian meals; never suggest deep-fried or nutritionally poor dishes such as Bhature, Puri, Samosa, Jalebi, Kachori, Vada Pav, or similar indulgent street food
 ${pantryRule}
 
@@ -235,7 +240,8 @@ Respond ONLY with valid JSON in this exact format, no extra text:
 ${mealExample}
       ],
       "total_calories": 1300,
-      "total_protein": 60
+      "total_protein": 60,
+      "total_fibre": 30
     }
   ]
 }`;

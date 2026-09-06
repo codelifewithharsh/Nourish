@@ -32,6 +32,7 @@ export interface EditableLog {
   protein:  number;
   carbs:    number;
   fat:      number;
+  fibre:    number;
 }
 
 interface Props {
@@ -56,6 +57,7 @@ export function EditLogModal({ entry, visible, saving, onSave, onClose }: Props)
   const [pro,  setPro]  = useState('0');
   const [carb, setCarb] = useState('0');
   const [fat,  setFat]  = useState('0');
+  const [fib,  setFib]  = useState('0');
 
   useEffect(() => {
     if (!entry) return;
@@ -65,6 +67,7 @@ export function EditLogModal({ entry, visible, saving, onSave, onClose }: Props)
     setPro(String(entry.protein));
     setCarb(String(entry.carbs));
     setFat(String(entry.fat));
+    setFib(String(entry.fibre));
   }, [entry]);
 
   if (!entry) return null;
@@ -112,6 +115,7 @@ export function EditLogModal({ entry, visible, saving, onSave, onClose }: Props)
             <Field label="protein" value={pro}  onChange={setPro}  color="#5B8DB8" />
             <Field label="carbs"   value={carb} onChange={setCarb} color="#E6A817" />
             <Field label="fat"     value={fat}  onChange={setFat}  color="#9B59B6" />
+            <Field label="fibre"   value={fib}  onChange={setFib}  color="#4E9A5F" />
           </View>
 
           <Txt style={s.fieldLabel}>Meal type</Txt>
@@ -143,6 +147,7 @@ export function EditLogModal({ entry, visible, saving, onSave, onClose }: Props)
               protein:  num(pro),
               carbs:    num(carb),
               fat:      num(fat),
+              fibre:    num(fib),
             })}
             activeOpacity={0.88}
             disabled={!canSave}
@@ -198,8 +203,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
   },
 
-  macroRow:   { flexDirection: 'row', gap: 8 },
-  field:      { flex: 1, alignItems: 'center', backgroundColor: Colors.background, borderRadius: BorderRadius.md, paddingVertical: 10 },
+  macroRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  field:      { flexGrow: 1, flexBasis: 88, alignItems: 'center', backgroundColor: Colors.background, borderRadius: BorderRadius.md, paddingVertical: 10 },
   fieldInput: { fontSize: 18, fontWeight: '800', textAlign: 'center', paddingVertical: 2, minWidth: 48 },
   fieldUnit:  { fontSize: 10, color: Colors.secondary, fontWeight: '600' },
 

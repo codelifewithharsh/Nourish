@@ -36,6 +36,8 @@ interface Meal {
   protein: number;
   carbs: number;
   fat: number;
+  /** Optional: plans generated before fibre was tracked simply omit it. */
+  fibre?: number;
 }
 
 interface Day {
@@ -54,6 +56,7 @@ interface LogRow {
   protein:   number;
   carbs:     number;
   fat:       number;
+  fibre:     number;
 }
 
 /**
@@ -61,6 +64,8 @@ interface LogRow {
  * Carries the row ids it was built from so it can be edited or undone.
  */
 interface LoggedMeal extends Meal {
+  /** Always known for a logged meal — the column is NOT NULL with default 0. */
+  fibre:  number;
   logIds: string[];
 }
 
@@ -231,6 +236,9 @@ function MealCard({
         <MacroPill value={`${meal.protein}g`} unit="protein" color="#5B8DB8" />
         <MacroPill value={`${meal.carbs}g`}   unit="carbs"   color="#E6A817" />
         <MacroPill value={`${meal.fat}g`}     unit="fat"     color="#9B59B6" />
+        {meal.fibre != null && (
+          <MacroPill value={`${meal.fibre}g`} unit="fibre" color="#4E9A5F" />
+        )}
       </View>
 
       {/* Actions. "Log it" is the plan-was-right path; Scan is for when they
@@ -663,7 +671,7 @@ export default function MealsScreen() {
       supabase.from('meal_plans').select('plan').eq('user_id', uid).maybeSingle(),
       supabase
         .from('daily_logs')
-        .select('id, meal_type, meal_name, calories, protein, carbs, fat, logged_at')
+        .select('id, meal_type, meal_name, calories, protein, carbs, fat, fibre, logged_at')
         .eq('user_id', uid).eq('date', today)
         .order('logged_at', { ascending: false }),
       supabase
@@ -702,7 +710,7 @@ export default function MealsScreen() {
     const today = todayStr();
     const { data } = await supabase
       .from('daily_logs')
-      .select('id, meal_type, meal_name, calories, protein, carbs, fat, logged_at')
+      .select('id, meal_type, meal_name, calories, protein, carbs, fat, fibre, logged_at')
       .eq('user_id', uid).eq('date', today)
       .order('logged_at', { ascending: false });
     applyLogs(data ?? []);
@@ -727,6 +735,7 @@ export default function MealsScreen() {
           protein:  l.protein,
           carbs:    l.carbs,
           fat:      l.fat,
+          fibre:    l.fibre ?? 0,
           logIds:   [l.id],
         };
         continue;
@@ -735,6 +744,7 @@ export default function MealsScreen() {
       existing.protein  += l.protein;
       existing.carbs    += l.carbs;
       existing.fat      += l.fat;
+      existing.fibre     = (existing.fibre ?? 0) + (l.fibre ?? 0);
       existing.logIds.push(l.id);
       // Rows arrive newest-first, so the first name seen is the freshest.
       // Beyond that, say how many things made up the plate.
@@ -803,6 +813,7 @@ export default function MealsScreen() {
         protein:   meal.protein,
         carbs:     meal.carbs,
         fat:       meal.fat,
+        fibre:     meal.fibre ?? 0,
         source:    'plan',
       }).select('id').single();
 
@@ -811,7 +822,7 @@ export default function MealsScreen() {
       setLoggedTypes((prev) => new Set([...prev, meal.type]));
       setLoggedMealsByType((prev) => ({
         ...prev,
-        [meal.type]: { ...meal, logIds: [data.id] },
+        [meal.type]: { ...meal, fibre: meal.fibre ?? 0, logIds: [data.id] },
       }));
     } finally {
       setBusyType(null);
@@ -866,6 +877,7 @@ export default function MealsScreen() {
         protein:   next.protein,
         carbs:     next.carbs,
         fat:       next.fat,
+        fibre:     next.fibre,
         source:    'text',
       });
       if (error) { Alert.alert('Could not save', 'Please try again.'); return; }
@@ -1017,6 +1029,8 @@ export default function MealsScreen() {
   const summaryProtein  = orderedMeals.reduce((s, m) => s + m.protein,  0);
   const summaryCarbs    = orderedMeals.reduce((s, m) => s + m.carbs,    0);
   const summaryFat      = orderedMeals.reduce((s, m) => s + m.fat,      0);
+  const summaryFibre    = orderedMeals.reduce((s, m) => s + (m.fibre ?? 0), 0);
+  const hasFibre        = orderedMeals.some((m) => m.fibre != null);
 
   const dayTitle = isToday ? 'Today' : FULL_DAYS[selectedDay];
   const hasSnack = !!mealsByType.snack;
@@ -1088,6 +1102,10 @@ export default function MealsScreen() {
               <SummaryMacro value={`${summaryCarbs}g`}   label="Carbs"   color="#E6A817" />
               <View style={s.summaryDiv} />
               <SummaryMacro value={`${summaryFat}g`}     label="Fat"     color="#9B59B6" />
+              {hasFibre && <>
+                <View style={s.summaryDiv} />
+                <SummaryMacro value={`${summaryFibre}g`} label="Fibre" color="#4E9A5F" />
+              </>}
             </View>
           </View>
         )}
@@ -1208,6 +1226,7 @@ export default function MealsScreen() {
               protein:  result.protein,
               carbs:    result.carbs,
               fat:      result.fat,
+              fibre:    0,
               logIds:   inserted ? [inserted.id] : [],
             }}));
 
