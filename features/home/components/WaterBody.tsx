@@ -15,6 +15,9 @@ interface Props {
 
 const W = 96;
 const H = 172;
+// Rendered size relative to the 96x172 drawing space, sized to sit
+// comfortably inside the water column beside the nutrition card.
+const SCALE = 0.72;
 
 // An outlined figure that fills as water rises, per the reference. The head
 // is a separate circle so it shares the same clip and fills last.
@@ -121,7 +124,7 @@ export function WaterBody({ glasses, target, onChange }: Props) {
     <View style={s.card}>
       <Txt style={s.label}>Water</Txt>
 
-      <Svg width={W} height={H} style={s.figure}>
+      <Svg width={W * SCALE} height={H * SCALE} viewBox={`0 0 ${W} ${H}`} style={s.figure}>
         <Defs>
           <ClipPath id="figureClip">
             <Path d={FIGURE} />
