@@ -13,7 +13,7 @@ import { WATER_LOGGED_EVENT, PROFILE_UPDATED_EVENT } from '@/lib/events';
  * to say, not to be clinical advice.
  */
 const FIBRE_TARGET_G      = 30;   // WHO/ICMR general adult guidance
-const SODIUM_LIMIT_MG     = 2000; // WHO upper limit; Indian diets often exceed this
+const SODIUM_LIMIT_MG     = 2000; // WHO upper limit; tracked and stored, not surfaced on the dashboard
 const SUGAR_LIMIT_G       = 50;   // WHO: below 10% of a 2000 kcal diet
 const SAT_FAT_LIMIT_PCT   = 0.10; // 10% of daily calories
 
@@ -115,7 +115,6 @@ export function deriveInsights(
 
   const proteinShort = recent.filter((d) => d.protein < targets.protein * 0.8).length;
   const fibreShort   = recent.filter((d) => d.fibre   < FIBRE_TARGET_G * 0.6).length;
-  const sodiumOver   = recent.filter((d) => d.sodium  > SODIUM_LIMIT_MG).length;
   const proteinGood  = recent.filter((d) => d.protein >= targets.protein * 0.9).length;
 
   const candidates: Insight[] = [];
@@ -125,13 +124,6 @@ export function deriveInsights(
       key: 'protein',
       severity: 'warn',
       message: `Protein has been under target ${proteinShort} of the last ${recent.length} days. Sustained low protein is where muscle gets lost, not fat.`,
-    });
-  }
-  if (sodiumOver >= 3) {
-    candidates.push({
-      key: 'sodium',
-      severity: 'warn',
-      message: `Salt has run high ${sodiumOver} days running. It's the quiet driver of blood pressure, and restaurant food is usually the source.`,
     });
   }
   if (fibreShort >= 3) {

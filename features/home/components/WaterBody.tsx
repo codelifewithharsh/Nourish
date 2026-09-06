@@ -13,49 +13,24 @@ interface Props {
   onChange: (glasses: number) => void;
 }
 
-const W = 96;
-const H = 172;
+const W = 84;
+const H = 132;
 
 // An outlined figure that fills as water rises, per the reference. The head
 // is a separate circle so it shares the same clip and fills last.
-const HEAD = { cx: 48, cy: 16, r: 12.5 };
+const HEAD = { cx: 42, cy: 15, r: 11.5 };
 
 // Torso, arms down the sides, two legs — one closed shape. Kept simple on
 // purpose: at this size extra detail turns to mush.
-const FIGURE = `
-  M48 34
-  C56 34 62 38 64 44
-  L67 56
-  C68 60 69 64 69 68
-  L70 96
-  C70 100 68 102 65 102
-  C62 102 60 100 60 96
-  L59 70
-  L58 70
-  L58 106
-  C58 112 57 118 57 124
-  L55 162
-  C55 167 52 170 49 170
-  C46 170 44 167 44 162
-  L46 126
-  L48 112
-  L50 126
-  L52 162
-  C52 167 50 170 47 170
-  C44 170 41 167 41 162
-  L39 124
-  C39 118 38 112 38 106
-  L38 70
-  L37 70
-  L36 96
-  C36 100 34 102 31 102
-  C28 102 26 100 26 96
-  L27 68
-  C27 64 28 60 29 56
-  L32 44
-  C34 38 40 34 48 34
-  Z
-`;
+// Figure built from the reference as five rounded shapes — torso, two arms,
+// two legs — plus the head circle. Kept separate rather than merged into one
+// path so every limb keeps its rounded caps; a single path forced sharp
+// joins wherever a limb met the torso.
+const TORSO = 'M36.5 32.0 H47.5 A9.5 9.5 0 0 1 57.0 41.5 V68.5 A9.5 9.5 0 0 1 47.5 78.0 H36.5 A9.5 9.5 0 0 1 27.0 68.5 V41.5 A9.5 9.5 0 0 1 36.5 32.0 Z';
+const ARM_L = 'M21.2 39.0 H21.2 A4.8 4.8 0 0 1 26.0 43.8 V80.2 A4.8 4.8 0 0 1 21.2 85.0 H21.2 A4.8 4.8 0 0 1 16.5 80.2 V43.8 A4.8 4.8 0 0 1 21.2 39.0 Z';
+const ARM_R = 'M62.8 39.0 H62.8 A4.8 4.8 0 0 1 67.5 43.8 V80.2 A4.8 4.8 0 0 1 62.8 85.0 H62.8 A4.8 4.8 0 0 1 58.0 80.2 V43.8 A4.8 4.8 0 0 1 62.8 39.0 Z';
+const LEG_L = 'M35.0 74.0 H35.5 A5.5 5.5 0 0 1 41.0 79.5 V118.5 A5.5 5.5 0 0 1 35.5 124.0 H35.0 A5.5 5.5 0 0 1 29.5 118.5 V79.5 A5.5 5.5 0 0 1 35.0 74.0 Z';
+const LEG_R = 'M48.5 74.0 H49.0 A5.5 5.5 0 0 1 54.5 79.5 V118.5 A5.5 5.5 0 0 1 49.0 124.0 H48.5 A5.5 5.5 0 0 1 43.0 118.5 V79.5 A5.5 5.5 0 0 1 48.5 74.0 Z';
 
 /**
  * Water level inside a body outline.
@@ -124,14 +99,20 @@ export function WaterBody({ glasses, target, onChange }: Props) {
       <Svg width={W} height={H} style={s.figure}>
         <Defs>
           <ClipPath id="figureClip">
-            <Path d={FIGURE} />
             <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} />
+            <Path d={TORSO} />
+            <Path d={ARM_L} /><Path d={ARM_R} />
+            <Path d={LEG_L} /><Path d={LEG_R} />
           </ClipPath>
         </Defs>
 
-        {/* Empty outline */}
-        <Path d={FIGURE} fill="none" stroke={Colors.water} strokeWidth={2.5} />
-        <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} fill="none" stroke={Colors.water} strokeWidth={2.5} />
+        {/* Empty figure */}
+        <G fill={Colors.waterEmpty}>
+          <Circle cx={HEAD.cx} cy={HEAD.cy} r={HEAD.r} />
+          <Path d={TORSO} />
+          <Path d={ARM_L} /><Path d={ARM_R} />
+          <Path d={LEG_L} /><Path d={LEG_R} />
+        </G>
 
         {/* Water, clipped to the figure. Back wave first, then front. */}
         <G clipPath="url(#figureClip)">

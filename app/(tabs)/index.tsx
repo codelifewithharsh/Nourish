@@ -150,8 +150,6 @@ export default function TodayScreen() {
                 highlight: insight?.key === 'protein' && insight.severity === 'warn' },
               { label: 'Fibre',   eaten: eaten.fibre,   target: targets.fibre,   unit: 'g',  color: NUTRIENT_COLORS.fibre,
                 highlight: insight?.key === 'fibre' && insight.severity === 'warn' },
-              { label: 'Sodium',  eaten: eaten.sodium,  target: targets.sodium,  unit: 'mg', color: NUTRIENT_COLORS.sodium,
-                isLimit: true, highlight: insight?.key === 'sodium' && insight.severity === 'warn' },
             ]}
           />
           <View style={s.waterCol}>
@@ -207,7 +205,7 @@ const s = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:  { padding: 20, gap: 14 },
   macroRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  waterCol: { width: '31%' },
+  waterCol: { width: '36%' },
 
   topBar:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
