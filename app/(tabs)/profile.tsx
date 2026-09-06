@@ -921,7 +921,7 @@ export default function YouScreen() {
 const FOUNDER_LINKS = {
   instagram: 'https://www.instagram.com/codelifewithharsh',
   linkedin:  'https://www.linkedin.com/in/code-life-with-harsh/',
-  website:   'https://codelifewithharsh.vercel.app/',
+  website:   'https://codelifewithharsh.com/',
 };
 
 const INSTAGRAM_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

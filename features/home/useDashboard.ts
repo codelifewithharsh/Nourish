@@ -150,6 +150,7 @@ export function deriveInsights(
 export function useDashboard() {
   const [data, setData]       = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed]   = useState(false);
   const [userId, setUserId]   = useState<string | null>(null);
   // The screen mounts and focuses in the same frame, so the initial fetch and
   // the focus refresh race. Both resolve async and call setData; without this
@@ -266,6 +267,7 @@ export function useDashboard() {
 
     if (!alive.current) return;
 
+    setFailed(false);
     setData({
       userName:  profile?.name ?? 'there',
       avatarUrl,
@@ -284,13 +286,23 @@ export function useDashboard() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { if (alive.current) setLoading(false); return; }
-      if (!alive.current) return;
-      setUserId(user.id);
-      const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
-      fetchAll(user.id, avatar);
-    });
+    // setLoading(false) is the last line of fetchAll, so anything throwing
+    // above it — a dropped connection on launch, most likely — would leave
+    // the skeleton pulsing forever with no way out. Clearing the flag here
+    // lets the screen render its empty state, which is at least scrollable
+    // and refreshable.
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) { if (alive.current) setLoading(false); return; }
+        if (!alive.current) return;
+        setUserId(user.id);
+        const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
+        return fetchAll(user.id, avatar);
+      })
+      .catch((err) => {
+        console.warn('[dashboard] initial load failed:', err);
+        if (alive.current) { setFailed(true); setLoading(false); }
+      });
   }, [fetchAll]);
 
   // Resolves the user itself rather than closing over `userId` state. A
@@ -298,11 +310,24 @@ export function useDashboard() {
   // tab bar's camera button does — and a refresh that captured a null id
   // would silently do nothing, leaving the dashboard showing stale totals.
   const refresh = useCallback(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
-      fetchAll(user.id, avatar);
-    });
+    // A retry from the error state has nothing on screen, so show the
+    // skeleton again rather than leaving the error sitting there looking
+    // like the tap did nothing. A pull-to-refresh already has data up and
+    // its own spinner, so this is a no-op there.
+    setFailed(false);
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) return;
+        const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
+        return fetchAll(user.id, avatar);
+      })
+      .catch((err) => {
+        // A failed refresh keeps whatever is on screen: stale numbers beat
+        // wiping the dashboard because one query timed out. Only a first load
+        // with nothing to show surfaces the error state.
+        console.warn('[dashboard] refresh failed:', err);
+        if (alive.current) { setLoading(false); setFailed(true); }
+      });
   }, [fetchAll]);
 
   useEffect(() => {
@@ -311,5 +336,5 @@ export function useDashboard() {
     return () => { water.remove(); profile.remove(); };
   }, [refresh]);
 
-  return { data, loading, refresh, userId };
+  return { data, loading, failed, refresh, userId };
 }

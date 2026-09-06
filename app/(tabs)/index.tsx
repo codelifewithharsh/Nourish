@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl,
+  View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl,
   Alert,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
@@ -15,6 +15,7 @@ import { IntakeCard } from '@/features/home/components/IntakeCard';
 import { NutritionsCard, NUTRIENT_COLORS } from '@/features/home/components/NutritionsCard';
 import { WaterBody } from '@/features/home/components/WaterBody';
 import { NextMealCard } from '@/features/home/components/NextMealCard';
+import { DashboardSkeleton } from '@/features/home/components/DashboardSkeleton';
 import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
 import { useScrollState } from '@/features/nutrition/ScrollContext';
@@ -48,7 +49,7 @@ function getInitials(name: string) {
 }
 
 export default function TodayScreen() {
-  const { data, loading, refresh, userId } = useDashboard();
+  const { data, loading, failed, refresh, userId } = useDashboard();
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
@@ -153,12 +154,33 @@ export default function TodayScreen() {
     refresh();
   }, [userId, refresh]);
 
+  // A first load that failed has nothing to show and isn't still working, so
+  // the skeleton would be claiming progress that isn't happening.
+  if (failed && !data) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <View style={s.errorWrap}>
+          <Txt style={s.errorEmoji}>🌿</Txt>
+          <Txt style={s.errorTitle}>Couldn't load your day</Txt>
+          <Txt style={s.errorBody}>
+            Check your connection — your logged meals are safe.
+          </Txt>
+          <TouchableOpacity
+            style={s.retryBtn}
+            onPress={() => { haptic.light(); refresh(); }}
+            activeOpacity={0.85}
+          >
+            <Txt style={s.retryTxt}>Try again</Txt>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (loading || !data) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
-        <View style={s.loading}>
-          <ActivityIndicator size="large" color={Colors.accent} />
-        </View>
+        <DashboardSkeleton />
       </SafeAreaView>
     );
   }
@@ -329,7 +351,12 @@ export default function TodayScreen() {
 
 const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: Colors.background },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 8 },
+  errorEmoji: { fontSize: 40, lineHeight: 48 },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary, lineHeight: 24, textAlign: 'center' },
+  errorBody:  { fontSize: 14, color: Colors.secondary, lineHeight: 20, textAlign: 'center' },
+  retryBtn:   { marginTop: 10, height: 46, paddingHorizontal: 28, borderRadius: 14, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  retryTxt:   { fontSize: 15, fontWeight: '700', color: '#FFFFFF', lineHeight: 20 },
   scroll:  { padding: 20, gap: 14 },
   macroRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   waterCol: { width: '36%' },
