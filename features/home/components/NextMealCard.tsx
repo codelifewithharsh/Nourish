@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
 import { Check, Sparkles, Camera } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Txt } from '@/components/ui';
-import { useAI } from '@/features/pro';
 import { haptic } from '@/lib/haptics';
 
 export interface NextMeal {
@@ -67,69 +64,30 @@ const mp = StyleSheet.create({
  *
  * Deliberately built to the Plan tab's meal card — same stripe, label, macro
  * pills and button shapes — so the same meal doesn't look like two different
- * things in two places. What it adds is a picture of the dish and a third
- * action for when the user ate something other than the plan.
- *
- * Images come from `dish-image`, generated once per dish and cached globally.
- * While it loads, or if it fails, the header collapses to a tinted band —
- * a missing picture is decoration, not information.
+ * things in two places. What it adds is a third action, for when the user ate
+ * something other than what was planned.
  */
 export function NextMealCard({ meal, logging, onLog, onSwap, onScan, onView }: Props) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [failed, setFailed]     = useState(false);
-  const invoke = useAI();
-
   const color = MEAL_COLOR[meal.type] ?? Colors.accent;
   const emoji = MEAL_EMOJI[meal.type] ?? '🍽️';
-
-  useEffect(() => {
-    let cancelled = false;
-    setImageUrl(null);
-    setFailed(false);
-
-    invoke<{ url: string }>('dish-image', { meal_name: meal.name })
-      .then((res) => { if (!cancelled) setImageUrl(res.url); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-
-    return () => { cancelled = true; };
-  }, [meal.name, invoke]);
 
   return (
     <View style={mc.card}>
       <View style={[mc.stripe, { backgroundColor: color }]} />
 
-      {/* Dish image */}
-      <TouchableOpacity activeOpacity={onView ? 0.92 : 1} onPress={onView} disabled={!onView}>
-        <View style={mc.imageWrap}>
-          {imageUrl && !failed ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={mc.image}
-              contentFit="cover"
-              transition={220}
-              onError={() => setFailed(true)}
-            />
-          ) : (
-            <View style={[mc.imageFallback, { backgroundColor: color + '14' }]}>
-              {failed
-                ? <Txt style={mc.fallbackEmoji}>{emoji}</Txt>
-                : <ActivityIndicator size="small" color={color} />}
+      <View style={mc.body}>
+        {/* Meal type + time hint, with the up-next marker on the right */}
+        <View style={mc.topRow}>
+          <View style={mc.topLeft}>
+            <Txt style={mc.emoji}>{emoji}</Txt>
+            <View>
+              <Txt style={[mc.label, { color }]}>{MEAL_LABEL[meal.type] ?? 'Next'}</Txt>
+              <Txt style={mc.time}>{MEAL_TIME_HINT[meal.type] ?? ''}</Txt>
             </View>
-          )}
-          <View style={mc.nextBadge}>
+          </View>
+          <View style={[mc.nextBadge, { backgroundColor: color + '14' }]}>
             <View style={[mc.nextDot, { backgroundColor: color }]} />
             <Txt style={[mc.nextTxt, { color }]}>Up next</Txt>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      <View style={mc.body}>
-        {/* Meal type + time hint */}
-        <View style={mc.topLeft}>
-          <Txt style={mc.emoji}>{emoji}</Txt>
-          <View>
-            <Txt style={[mc.label, { color }]}>{MEAL_LABEL[meal.type] ?? 'Next'}</Txt>
-            <Txt style={mc.time}>{MEAL_TIME_HINT[meal.type] ?? ''}</Txt>
           </View>
         </View>
 
@@ -200,14 +158,9 @@ const mc = StyleSheet.create({
   },
   stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, zIndex: 1 },
 
-  imageWrap:     { position: 'relative' },
-  image:         { width: '100%', height: 150, backgroundColor: Colors.background },
-  imageFallback: { width: '100%', height: 150, alignItems: 'center', justifyContent: 'center' },
-  fallbackEmoji: { fontSize: 40 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nextBadge: {
-    position: 'absolute', top: 10, right: 10,
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: 999, paddingVertical: 4, paddingHorizontal: 9,
   },
   nextDot: { width: 6, height: 6, borderRadius: 3 },
