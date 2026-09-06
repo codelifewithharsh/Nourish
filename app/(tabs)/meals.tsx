@@ -728,10 +728,17 @@ export default function MealsScreen() {
   // plate.
   const applyLogs = (logs: LogRow[]) => {
     const byType: Record<string, LoggedMeal> = {};
+    // The freshest row's name, kept verbatim so it can be reused on every
+    // subsequent row without re-deriving it from a string that's already
+    // been rewritten — parsing it back out of "X + N more" broke if a
+    // user-typed name (the edit sheet allows any text) itself contained
+    // " + ".
+    const firstName: Record<string, string> = {};
     for (const l of logs) {
       const t = l.meal_type;
       const existing = byType[t];
       if (!existing) {
+        firstName[t] = l.meal_name;
         byType[t] = {
           type:     t as MealType,
           name:     l.meal_name,
@@ -752,7 +759,7 @@ export default function MealsScreen() {
       existing.logIds.push(l.id);
       // Rows arrive newest-first, so the first name seen is the freshest.
       // Beyond that, say how many things made up the plate.
-      existing.name = `${existing.name.split(' + ')[0]} + ${existing.logIds.length - 1} more`;
+      existing.name = `${firstName[t]} + ${existing.logIds.length - 1} more`;
     }
     setLoggedMealsByType(byType);
     setLoggedTypes(new Set(Object.keys(byType)));

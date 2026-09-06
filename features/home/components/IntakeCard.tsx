@@ -19,8 +19,11 @@ const GAP_DEGREES = 96;
 const SWEEP       = 360 - GAP_DEGREES;
 
 export function IntakeCard({ eaten, target }: Props) {
-  const pct     = target > 0 ? Math.min(eaten / target, 1) : 0;
-  const percent = target > 0 ? Math.round((eaten / target) * 100) : 0;
+  const pct = target > 0 ? Math.min(eaten / target, 1) : 0;
+  // Capped the same way the ring is: past target the ring already reads as
+  // full, so a percent number past 100 disagreed with what was drawn beside
+  // it — "100%, ring full" is one consistent fact instead of two clashing ones.
+  const percent = Math.round(pct * 100);
 
   const radius = (SIZE - STROKE) / 2;
   const circum = 2 * Math.PI * radius;

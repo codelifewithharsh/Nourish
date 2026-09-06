@@ -159,7 +159,14 @@ export function PhotoLogProvider({ children }: { children: ReactNode }) {
         mealType={mealType}
         onChangeMealType={setMealType}
         onConfirm={handleConfirm}
-        onRetake={() => { photo.reset(); photo.capture('camera'); }}
+        onRetake={() => {
+          // Offer the same source the last attempt used — reset() clears
+          // photo.result, so the source has to be read before that fires or
+          // a gallery pick would always fall through to "camera" instead.
+          const source = photo.result?.source ?? 'camera';
+          photo.reset();
+          photo.capture(source);
+        }}
         onClose={photo.reset}
       />
     </Ctx.Provider>

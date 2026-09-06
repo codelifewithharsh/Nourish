@@ -229,7 +229,15 @@ export function PhotoResultSheet({
     haptic.warning();
     setItems((prev) => prev.filter((_, n) => n !== i));
     setScales((prev) => prev.filter((_, n) => n !== i));
-    setEditing((e) => (e === i ? null : e));
+    // `editing` is a plain index into the (now shorter) array. Closing it
+    // when the edited row itself is removed is not enough — removing any row
+    // *before* it must shift it down too, or it silently points at the wrong
+    // item (or none), which closed the open editor without saving.
+    setEditing((e) => {
+      if (e === null) return null;
+      if (e === i) return null;
+      return e > i ? e - 1 : e;
+    });
   };
 
   /**

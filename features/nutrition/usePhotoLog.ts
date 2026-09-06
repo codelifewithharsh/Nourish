@@ -43,6 +43,8 @@ export interface PhotoResult {
   localUri:       string;
   /** Downscaled JPEG bytes, reused for upload so the file isn't re-read. */
   base64:         string;
+  /** Where this photo came from, so "Retake" can offer the same source again. */
+  source:         'camera' | 'library';
 }
 
 export type PhotoStage = 'idle' | 'capturing' | 'preparing' | 'analyzing';
@@ -148,7 +150,7 @@ export function usePhotoLog() {
         mime_type:    'image/jpeg',
       });
 
-      const full: PhotoResult = { ...data, localUri: manipulated.uri, base64 };
+      const full: PhotoResult = { ...data, localUri: manipulated.uri, base64, source };
 
       if (!data.items || data.items.length === 0) {
         // Not an error — the model looked and found no food. Surface its note.
