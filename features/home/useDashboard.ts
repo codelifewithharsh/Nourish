@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { localDateStr, todayStr } from '@/lib/date';
@@ -151,6 +151,14 @@ export function useDashboard() {
   const [data, setData]       = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId]   = useState<string | null>(null);
+  // The screen mounts and focuses in the same frame, so the initial fetch and
+  // the focus refresh race. Both resolve async and call setData; without this
+  // the later one can land after unmount.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   const fetchAll = useCallback(async (uid: string, avatarUrl: string | null) => {
     const today = todayStr();
@@ -188,6 +196,13 @@ export function useDashboard() {
       sodium:   SODIUM_LIMIT_MG,
       sat_fat:  Math.round((targetCalories * SAT_FAT_LIMIT_PCT) / 9),
     };
+
+    // A failed query here silently reads as "nothing eaten today", which is
+    // indistinguishable from a real empty day — so say so rather than
+    // rendering a confident zero built on an error.
+    if (todayRes.error) {
+      console.warn('[dashboard] today logs query failed:', todayRes.error.message);
+    }
 
     const rows = todayRes.data ?? [];
     const eaten: DashboardTotals = rows.reduce((a, r) => ({
@@ -249,6 +264,8 @@ export function useDashboard() {
       weekLoggedDays[i] = loggedDates.has(localDateStr(d));
     }
 
+    if (!alive.current) return;
+
     setData({
       userName:  profile?.name ?? 'there',
       avatarUrl,
@@ -268,21 +285,25 @@ export function useDashboard() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { setLoading(false); return; }
+      if (!user) { if (alive.current) setLoading(false); return; }
+      if (!alive.current) return;
       setUserId(user.id);
       const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
       fetchAll(user.id, avatar);
     });
   }, [fetchAll]);
 
+  // Resolves the user itself rather than closing over `userId` state. A
+  // caller can subscribe to this before the auth lookup has resolved — the
+  // tab bar's camera button does — and a refresh that captured a null id
+  // would silently do nothing, leaving the dashboard showing stale totals.
   const refresh = useCallback(() => {
-    if (userId) {
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        const avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null;
-        fetchAll(userId, avatar);
-      });
-    }
-  }, [userId, fetchAll]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
+      fetchAll(user.id, avatar);
+    });
+  }, [fetchAll]);
 
   useEffect(() => {
     const water   = DeviceEventEmitter.addListener(WATER_LOGGED_EVENT, refresh);

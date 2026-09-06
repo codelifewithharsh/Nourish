@@ -3,7 +3,7 @@ import {
   View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator,
   ScrollView, Animated, Easing,
 } from 'react-native';
-import { Sparkles, ArrowUp, Camera, X, Check } from 'lucide-react-native';
+import { Sparkles, ArrowUp, Camera, X, Check, Image as ImageIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius } from '@/constants/spacing';
 import { Txt } from '@/components/ui/Typography';
@@ -63,6 +63,7 @@ interface Props {
   onDiscard:     () => void;
   confirming:    boolean;
   onScan:        () => void;
+  onPickImage:   () => void;
   scanBusy:      boolean;
   onPickRecent:  (text: string, cached: RecentMeal | null) => void;
 }
@@ -79,7 +80,7 @@ interface Props {
 export function QuickAddCard({
   mealType, recentMeals, query, onChangeQuery, onSubmit, looking,
   result, selectedType, onSelectType, onConfirm, onDiscard, confirming,
-  onScan, scanBusy, onPickRecent,
+  onScan, onPickImage, scanBusy, onPickRecent,
 }: Props) {
   const inputRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
@@ -119,15 +120,27 @@ export function QuickAddCard({
         <Txt style={qa.headTxt}>Ate something else?</Txt>
       </View>
 
-      {/* Camera first — it's the fast path. */}
-      <TouchableOpacity style={qa.scanBtn} onPress={onScan} activeOpacity={0.88} disabled={scanBusy}>
-        {scanBusy
-          ? <ActivityIndicator size="small" color="#FFFFFF" />
-          : <>
-              <Camera size={18} color="#FFFFFF" strokeWidth={2.3} />
-              <Txt style={qa.scanTxt}>Scan your plate</Txt>
-            </>}
-      </TouchableOpacity>
+      {/* Camera first — it's the fast path — with the gallery beside it for a
+          plate that was photographed earlier. */}
+      <View style={qa.scanRow}>
+        <TouchableOpacity style={qa.scanBtn} onPress={onScan} activeOpacity={0.88} disabled={scanBusy}>
+          {scanBusy
+            ? <ActivityIndicator size="small" color="#FFFFFF" />
+            : <>
+                <Camera size={18} color="#FFFFFF" strokeWidth={2.3} />
+                <Txt style={qa.scanTxt}>Scan your plate</Txt>
+              </>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={qa.galleryBtn}
+          onPress={onPickImage}
+          activeOpacity={0.85}
+          disabled={scanBusy}
+          accessibilityLabel="Choose a photo from your gallery"
+        >
+          <ImageIcon size={19} color={Colors.accent} strokeWidth={2.1} />
+        </TouchableOpacity>
+      </View>
 
       <View style={qa.divider}>
         <View style={qa.dividerLine} />
@@ -291,7 +304,14 @@ const qa = StyleSheet.create({
   sparkWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.accentLight, alignItems: 'center', justifyContent: 'center' },
   headTxt:   { fontSize: 14, fontWeight: '700', color: Colors.primary, lineHeight: 19 },
 
+  scanRow: { flexDirection: 'row', gap: 8 },
+  galleryBtn: {
+    width: 48, height: 48, borderRadius: BorderRadius.md,
+    backgroundColor: Colors.accentLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
   scanBtn: {
+    flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 48, borderRadius: BorderRadius.md, backgroundColor: Colors.accent,
   },

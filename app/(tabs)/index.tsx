@@ -19,6 +19,8 @@ import { SwapMealModal, SwapResult } from '@/components/SwapMealModal';
 import { usePhotoLogger } from '@/features/nutrition/PhotoLogProvider';
 import type { MealType } from '@/features/nutrition/components/PhotoResultSheet';
 import { HomeDrawer } from '@/components/HomeDrawer';
+import { NotifSheet } from '@/components/NotifSheet';
+import { useMealReminders } from '@/features/notifications/useMealReminders';
 import { FeedbackSheet } from '@/features/feedback/FeedbackSheet';
 import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { OGAvatar } from '@/features/pro';
@@ -52,7 +54,11 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing]   = useState(false);
   const [loggingMeal, setLoggingMeal] = useState(false);
   const [swapOpen, setSwapOpen]       = useState(false);
+  const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const photoLogger = usePhotoLogger();
+  const {
+    mealTimes, enabled: notifsEnabled, setMealTime, setEnabled: setNotifsEnabled,
+  } = useMealReminders();
   const insets = useSafeAreaInsets();
   // FloatingTabBar is absolutely positioned, so content must reserve its
   // height itself: 62px pill + 10px wrapper padding + safe area + breathing room.
@@ -190,7 +196,11 @@ export default function TodayScreen() {
                 <Txt style={s.streakTxt}>{data.streak}</Txt>
               </View>
             )}
-            <TouchableOpacity style={s.bellBtn} activeOpacity={0.75} onPress={() => setDrawerOpen(true)}>
+            <TouchableOpacity
+              style={s.bellBtn}
+              activeOpacity={0.75}
+              onPress={() => { analytics.notifSettingsOpened(); setNotifSheetOpen(true); }}
+            >
               <Bell size={19} color={Colors.accent} strokeWidth={1.9} />
             </TouchableOpacity>
           </View>
@@ -292,8 +302,16 @@ export default function TodayScreen() {
         targetProtein={targets.protein}
         onClose={() => setDrawerOpen(false)}
         onShowHowItWorks={() => { setDrawerOpen(false); setHowItWorksOpen(true); }}
-        onShowNotifications={() => setDrawerOpen(false)}
+        onShowNotifications={() => { setDrawerOpen(false); setNotifSheetOpen(true); }}
         onShowFeedback={() => { setDrawerOpen(false); setFeedbackOpen(true); }}
+      />
+      <NotifSheet
+        visible={notifSheetOpen}
+        enabled={notifsEnabled}
+        mealTimes={mealTimes}
+        onToggle={(val) => setNotifsEnabled(val)}
+        onMealTimeChange={setMealTime}
+        onClose={() => setNotifSheetOpen(false)}
       />
       <HowItWorksModal visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)} />
       <FeedbackSheet visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} userId={userId} userEmail="" />

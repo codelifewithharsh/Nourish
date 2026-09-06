@@ -43,14 +43,9 @@ function currentMealType(): MealType {
  */
 export function PhotoLogProvider({ children }: { children: ReactNode }) {
   const photo = usePhotoLog();
-  const [userId, setUserId]     = useState<string | null>(null);
   const [mealType, setMealType] = useState<MealType>(currentMealType());
   const [saving, setSaving]     = useState(false);
   const [listeners] = useState(() => new Set<() => void>());
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
-  }, []);
 
   useEffect(() => {
     if (photo.error) {
@@ -73,10 +68,16 @@ export function PhotoLogProvider({ children }: { children: ReactNode }) {
   // separately rather than one opaque blob. They share a photo_path, which is
   // what lets the UI group them back together later.
   const handleConfirm = useCallback(async (items: PhotoItem[]) => {
-    if (!userId || !photo.result) return;
+    if (!photo.result) return;
     setSaving(true);
     haptic.success();
     try {
+      // Resolved here rather than held in state: a confirm that lands before
+      // the auth lookup resolves would otherwise silently drop the meal.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { Alert.alert('Could not save', 'Please sign in again.'); return; }
+      const userId = user.id;
+
       const photoPath = await photo.uploadPhoto(photo.result.base64, userId);
       const rows = items.map((it) => ({
         user_id:    userId,
@@ -112,7 +113,7 @@ export function PhotoLogProvider({ children }: { children: ReactNode }) {
     } finally {
       setSaving(false);
     }
-  }, [userId, photo, mealType, listeners]);
+  }, [photo, mealType, listeners]);
 
   const busy = photo.stage !== 'idle';
 

@@ -756,11 +756,16 @@ export default function MealsScreen() {
   // A scan can be started from a meal card or from the tab bar while this
   // screen is showing, and either way the rows land without a navigation —
   // so the provider tells us when to refetch.
+  // Resolves the user at fire time rather than closing over `userId`, which
+  // is null on the first render — a scan finishing before auth resolves would
+  // otherwise leave the just-logged meal invisible until the next focus.
   useEffect(() => {
     return photoLogger.onLogged(() => {
-      if (userId) fetchLogsOnly(userId);
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) fetchLogsOnly(user.id);
+      });
     });
-  }, [photoLogger, userId, fetchLogsOnly]);
+  }, [photoLogger, fetchLogsOnly]);
 
   // Cross-tab sync: refetch logs when meals tab gains focus.
   // Also recompute today's index in case the date rolled over midnight.
@@ -1148,6 +1153,7 @@ export default function MealsScreen() {
             onDiscard={() => { setLookupResult(null); setQuery(''); }}
             confirming={confirming}
             onScan={() => photoLogger.start({ mealType: quickType })}
+            onPickImage={() => photoLogger.start({ mealType: quickType, source: 'library' })}
             scanBusy={photoLogger.busy}
             onPickRecent={handlePickRecent}
           />
