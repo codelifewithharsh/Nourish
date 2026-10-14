@@ -1,0 +1,22 @@
+id,query,category,ref_kcal,ref_protein_g,band_pct
+roti_1,1 roti,single,112,3.7,20
+roti_3,3 roti,quantity,336,11.1,20
+rice_1,1 katori rice,single,178,4.0,20
+rice_2,2 katori rice,quantity,356,7.9,20
+dal_1,1 katori toor dal,single,151,6.8,25
+rajma_1,1 katori rajma,single,203,8.7,30
+chole_1,1 katori chole,single,202,7.3,30
+palak_paneer_1,1 katori palak paneer,single,242,12.4,30
+pbm_1,1 katori paneer butter masala,single,405,13.9,35
+poha_1,1 plate poha,single,307,6.6,25
+upma_1,1 plate upma,single,249,5.8,25
+idli_2,2 idli,single,111,3.7,20
+idli_4,4 idli,quantity,223,7.5,20
+dosa_1,1 plain dosa,single,184,4.7,30
+sambar_1,1 katori sambar,single,110,4.0,30
+curd_1,1 katori curd,single,90,4.7,20
+aloo_sabzi_1,1 katori aloo sabzi,single,162,2.2,30
+khichdi_1,1 katori moong dal khichdi,single,186,5.6,25
+messy_roti_dal,2 roti and thoda dal,messy,300,10.8,30
+messy_dal_chawal,dal chawal,messy,329,10.7,30
+messy_paneer_paratha,paneer paratha with curd,messy,371,13.9,30

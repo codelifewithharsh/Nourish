@@ -4,6 +4,11 @@ Welcome. This is your map to understanding the codebase end-to-end.
 
 These docs are written for someone who knows JavaScript/TypeScript well but is touching React Native, Expo, Supabase, and edge functions for the first time. They explain not just *what* the code does, but *why* it's shaped this way — the trade-offs we picked and the ones we deferred.
 
+> **Need to explain the whole system to someone (or yourself)?** Read
+> **[16-design-system.md](./16-design-system.md)** — the end-to-end explanation, with flow diagrams.
+> For **"why did you choose Postgres / Supabase / no Redux?"** and other interview questions,
+> read **[17-interview-answers.md](./17-interview-answers.md)**.
+>
 > **Looking for a quick, accurate answer about how something works?** Read
 > **[12-codebase-reference.md](./12-codebase-reference.md)** then **[15-version-2.md](./15-version-2.md)**.
 > Doc 12 was verified line-by-line against the source on 2026-09-06; doc 15 covers everything v2 changed
@@ -29,6 +34,15 @@ If you're new, read them in order. Each builds on the previous.
 13. **[13-product-plan.md](./13-product-plan.md)** — The product plan: why the direction is changing, the research behind it, success metrics, and the phased build sequence. *(Stale on scan limits — see doc 15.)*
 14. **[14-branch-handoff.md](./14-branch-handoff.md)** — Handoff notes written mid-build for the v2 branch. **Stale**: it says nothing is deployed, which is no longer true. Kept for history; prefer doc 15.
 15. **[15-version-2.md](./15-version-2.md)** — **What v2 changed.** Photo logging, the 3-tab restructure, the sex-aware TDEE fix, the new schema, and the loose ends left behind. Short by design; read with doc 12.
+16. **[16-design-system.md](./16-design-system.md)** — **The end-to-end design system.** How the whole thing fits together and *why*: a plain-language glossary, the four architectural decisions, the layer cake, the photo-logging flow diagram, the `guard()` pattern, the domain math, and the product argument behind the shape. Docs 12 and 15 are reference; this one is explanation. Read it before explaining Nourish to anyone.
+17. **[17-interview-answers.md](./17-interview-answers.md)** — **"Why did you choose that?"** Spoken-length answers defending every major decision — Postgres, Supabase, no Redux, API key handling, auth, RLS, anon key vs JWT — each with its honest cost, plus the questions that trip people up and a 3-sentence project pitch.
+18. **[18-evals.md](./18-evals.md)** — **Evals for the AI features.** What an eval is, how the nutrition answer key was built from IFCT 2017, the metrics and their traps, the 6-setup model comparison (gpt-4o-mini 67% → gpt-5.6-luna 94% calorie accuracy), pitfalls, interview answers and a masterclass outline. Code lives in [`evals/`](../evals/).
+
+## Plans
+
+Agent-ready implementation plans live in [`plans/`](./plans/). Each is self-contained: hand one to an agent with "Implement docs/plans/<file>".
+
+- **[ship-luna-nutrition.md](./plans/ship-luna-nutrition.md)** — Fix the nutrition cache key (confirmed: "1 roti" and "3 roti" share one cache entry), then move text lookup to gpt-5.6-luna. Two commits, one deploy. *Not started.*
 
 ## Keep these docs alive
 

@@ -1,0 +1,22 @@
+name,kcal_per_100g,protein_per_100g,source,confidence
+atta,320,10.6,IFCT 2017 whole wheat flour,high
+rice_raw,356,7.9,IFCT 2017 rice raw milled,high
+toor_dal,331,21.7,IFCT 2017 red gram dal,high
+moong_dal,347,23.9,IFCT 2017 green gram dal,high
+urad_dal,324,23.1,IFCT 2017 black gram dal,high
+rajma,340,22.9,IFCT 2017 rajmah red,high
+kabuli_chana,336,18.8,IFCT 2017 bengal gram whole white,medium
+poha,350,7.0,NIN rice flakes,medium
+sooji,348,10.4,NIN semolina,medium
+paneer,292,18.3,IFCT 2017 paneer full-fat,high
+curd,60,3.1,NIN curd cow milk,high
+ghee,900,0,pure fat,high
+oil,900,0,pure fat,high
+butter,729,0.5,NIN butter,high
+cream,250,2.5,~25% fat fresh cream (packet label),medium
+cashew,583,18.8,IFCT 2017 cashew nut,high
+peanut,567,25.3,NIN groundnut,high
+spinach,23,2.9,IFCT 2017 palak,high
+potato,77,1.6,IFCT 2017 potato,high
+onion_tomato_masala,35,1.2,blend of onion + tomato (approximation),low
+mixed_vegetables,30,1.5,generic sabzi vegetables (approximation),low
