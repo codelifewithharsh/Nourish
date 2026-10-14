@@ -50,3 +50,9 @@ supabase/.branches/
 # generated native folders
 /ios
 /android
+
+# evals (Python)
+evals/.env
+evals/.venv/
+evals/results/
+__pycache__/

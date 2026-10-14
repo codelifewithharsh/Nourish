@@ -1,0 +1,22 @@
+id,query,category,recipe_raw_grams,band_pct,notes
+roti_1,1 roti,single,atta:35,20,medium phulka; no ghee on top
+roti_3,3 roti,quantity,atta:105,20,3x roti_1 - tests quantity scaling
+rice_1,1 katori rice,single,rice_raw:50,20,50g raw ~ 150g cooked
+rice_2,2 katori rice,quantity,rice_raw:100,20,2x rice_1 - tests quantity scaling
+dal_1,1 katori toor dal,single,toor_dal:30; ghee:5; onion_tomato_masala:20,25,home-style with 1 tsp ghee tadka
+rajma_1,1 katori rajma,single,rajma:35; onion_tomato_masala:60; oil:7,30,home-style gravy
+chole_1,1 katori chole,single,kabuli_chana:35; onion_tomato_masala:60; oil:7,30,home-style gravy
+palak_paneer_1,1 katori palak paneer,single,paneer:50; spinach:100; onion_tomato_masala:30; oil:7,30,no cream
+pbm_1,1 katori paneer butter masala,single,paneer:60; butter:10; cream:15; cashew:8; onion_tomato_masala:80; oil:5,35,restaurant-style; recipes vary a lot
+poha_1,1 plate poha,single,poha:50; oil:7; peanut:10; mixed_vegetables:40,25,with peanuts + onion/potato
+upma_1,1 plate upma,single,sooji:50; oil:7; mixed_vegetables:40,25,
+idli_2,2 idli,single,rice_raw:24; urad_dal:8,20,3:1 rice:urad batter; ~40g cooked each; no sambar
+idli_4,4 idli,quantity,rice_raw:48; urad_dal:16,20,2x idli_2 - tests quantity scaling
+dosa_1,1 plain dosa,single,rice_raw:30; urad_dal:10; oil:5,30,no potato filling; no chutney
+sambar_1,1 katori sambar,single,toor_dal:15; mixed_vegetables:50; oil:5,30,
+curd_1,1 katori curd,single,curd:150,20,plain dahi
+aloo_sabzi_1,1 katori aloo sabzi,single,potato:120; oil:7; onion_tomato_masala:20,30,dry aloo sabzi
+khichdi_1,1 katori moong dal khichdi,single,rice_raw:25; moong_dal:15; ghee:5,25,
+messy_roti_dal,2 roti and thoda dal,messy,atta:70; toor_dal:15; ghee:2.5; onion_tomato_masala:10,30,thoda = half katori
+messy_dal_chawal,dal chawal,messy,toor_dal:30; ghee:5; onion_tomato_masala:20; rice_raw:50,30,no quantity given: assume 1 katori each
+messy_paneer_paratha,paneer paratha with curd,messy,atta:50; paneer:30; ghee:7; curd:100,30,1 paratha + small katori curd
